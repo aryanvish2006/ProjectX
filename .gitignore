@@ -1,0 +1,16 @@
+#Python
+client/__pycache__/
+client/*.pyc
+client/*.pyo
+client/myenv
+client/.env
+
+#Nodejs
+server/node_modules/
+server/npm-debug.log
+server/yarn-error.log
+server/.env
+
+#OS files
+.DS_Store
+Thumbs.db
