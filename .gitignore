@@ -4,6 +4,9 @@ client/*.pyc
 client/*.pyo
 client/myenv
 client/.env
+client/dist/
+client/build/
+client/client.spec
 
 #Nodejs
 server/node_modules/
