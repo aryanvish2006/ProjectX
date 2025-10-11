@@ -8,11 +8,15 @@ def notepad_write(text,drawHeart):
     pg.press("win")
     time.sleep(1)
     pg.typewrite("notepad",0.3)
-    time.sleep(1.5)
+    time.sleep(2.5)
     pg.press("enter")
-    time.sleep(1.5)
+    time.sleep(2)
     pg.hotkey("alt","space","x")
-    time.sleep(.5)
+    time.sleep(.3)
+    for _ in range(15):
+        pg.hotkey("ctrl","=")
+        time.sleep(0.05)
+    time.sleep(0.2)    
     pg.typewrite(text,0.3)
 
     if drawHeart:

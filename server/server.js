@@ -12,17 +12,21 @@ const server = app.listen(3000,()=>{
 })
 const wss = new WebSocket.Server({noServer:true});
 
-let client = null;
-
 const clients = new Map();
+const ackedClients = new Set()
+let connectFlag = false;
 
 wss.on("connection", (ws) => {
   let deviceName = null;
 
   ws.on("message", (value) => {
     const msg = value.toString();
-
-    if (msg.startsWith("Connected")) {
+    if(msg.startsWith("ACK:")){
+      const ackDevice = msg.split(":")[1];
+      ackedClients.add(ackDevice)
+      console.log(`Ack recived. Total : ${ackedClients.size} / ${clients.size}`)
+    }
+    else if(msg.startsWith("Connected")) {
       deviceName = msg.split(":")[1].trim();
 
       // Close old connection if already exists
@@ -33,7 +37,7 @@ wss.on("connection", (ws) => {
 
       clients.set(deviceName, ws);
       console.log("Connected:", deviceName);
-    } else {
+    }else {
       console.log(`Message from ${deviceName || "unknown"}`, msg);
     }
   });
@@ -46,11 +50,18 @@ wss.on("connection", (ws) => {
   });
 });
 
-
 server.on("upgrade",(request,socket,head)=>{
     wss.handleUpgrade(request,socket,head,ws=>{
         wss.emit("connection",ws,request)
     })
+})
+
+app.get("/shouldconnect",(req,res)=>{
+  res.json({connect:connectFlag})
+})
+app.get("/setconnect/:value",(req,res)=>{
+  connectFlag =req.params.value === "true";
+  res.send(`connectFlag set to ${connectFlag}`);
 })
 
 app.post("/upload",upload.single("screenshot"),(req,res)=>{
@@ -69,22 +80,26 @@ app.get("/clients", (req, res) => {
 
 
 app.get("/send", (req, res) => {
-  const deviceName = req.query.device;
+  const i = parseInt(req.query.i); // use ?i=0
   const msg = req.query.msg;
 
-  if (!deviceName || !msg)
-    return res.send("Usage: /send?device=DeviceName&msg=yourMessage");
+  if (isNaN(i) || !msg)
+    return res.send("Usage: /send?i=0&msg=yourMessage");
 
-  const target = clients.get(deviceName);
-  if (!target) return res.send(`Device ${deviceName} not found`);
+  const clientArray = Array.from(clients.values());
+  const target = clientArray[i];
+
+  if (!target) return res.send(`No client at index ${i}`);
 
   if (target.readyState === WebSocket.OPEN) {
     target.send(msg);
-    res.send(`Message sent to ${deviceName}: ${msg}`);
+    const deviceName = Array.from(clients.keys())[i];
+    res.send(`Message sent to ${deviceName} (i=${i}): ${msg}`);
   } else {
-    res.send(`${deviceName} is disconnected`);
+    res.send(`Client at i=${i} is disconnected`);
   }
 });
+
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
