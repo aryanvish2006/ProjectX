@@ -1,94 +1,142 @@
 import React, { useState, useRef } from "react";
 
 export default function MouseTouchpad({ sendCommand }) {
-  const [liveMouse, setLiveMouse] = useState(false); // toggle mode
-  const [ballPos, setBallPos] = useState({ x: 0, y: 0 }); // relative to center
-  const startPos = useRef({ x: 0, y: 0 }); // starting drag coordinates
+  const padRef = useRef(null);
+  const [ballPos, setBallPos] = useState({ x: 50, y: 50 }); 
   const dragging = useRef(false);
+  const offset = useRef({ x: 0, y: 0 });
 
-  const toggleLive = () => setLiveMouse(prev => !prev);
+  // Default virtual screen size
+  const [virtualWidth, setVirtualWidth] = useState(1366);
+  const [virtualHeight, setVirtualHeight] = useState(768);
 
+  // Drag start
   const handlePointerDown = (e) => {
+    const pad = padRef.current.getBoundingClientRect();
+    const ballX = (ballPos.x / 100) * pad.width;
+    const ballY = (ballPos.y / 100) * pad.height;
+
+    const mouseX = e.clientX - pad.left;
+    const mouseY = e.clientY - pad.top;
+
+    offset.current = { x: mouseX - ballX, y: mouseY - ballY };
     dragging.current = true;
-    startPos.current = { x: e.clientX, y: e.clientY };
-    setBallPos({ x: 0, y: 0 }); // reset ball for this drag
   };
 
+  // Drag move
   const handlePointerMove = (e) => {
-    if (!dragging.current) return; // only move if dragging
-
-    if (liveMouse) {
-      // Live mode: send continuous movements
-      const dx = e.movementX;
-      const dy = e.movementY;
-      sendCommand(`mousemove ${dx} ${dy}`, false);
-    } else {
-      // Batch mode: update ball position relative to drag start
-      const dx = e.clientX - startPos.current.x;
-      const dy = e.clientY - startPos.current.y;
-      setBallPos({ x: dx, y: dy });
-    }
-  };
-
-  const handlePointerUp = () => {
     if (!dragging.current) return;
 
-    if (!liveMouse) {
-      // Batch mode: send total delta once
-      sendCommand(`mousemove ${ballPos.x} ${ballPos.y}`, false);
-      setBallPos({ x: 0, y: 0 }); // reset ball
-    }
+    const pad = padRef.current.getBoundingClientRect();
+    const mouseX = e.clientX - pad.left;
+    const mouseY = e.clientY - pad.top;
 
-    dragging.current = false;
+    let newX = ((mouseX - offset.current.x) / pad.width) * 100;
+    let newY = ((mouseY - offset.current.y) / pad.height) * 100;
+
+    newX = Math.max(0, Math.min(100, newX));
+    newY = Math.max(0, Math.min(100, newY));
+
+    setBallPos({ x: newX, y: newY });
   };
 
-  return (
-    <div style={{ marginTop: 20 }}>
-      <button onClick={toggleLive} style={{ marginBottom: 10, padding: "8px 16px" }}>
-        {liveMouse ? "Live Mouse ON" : "Batch Mode (Drag & Release)"}
-      </button>
+  // Drag end — send command
+  const handlePointerUp = () => {
+    if (!dragging.current) return;
+    dragging.current = false;
 
+    const absX = Math.round((ballPos.x / 100) * virtualWidth);
+    const absY = Math.round((ballPos.y / 100) * virtualHeight);
+
+    sendCommand(`moveto ${absX} ${absY}`);
+  };
+
+  // Handle virtual screen size change
+  const handleWidthChange = (e) => setVirtualWidth(Number(e.target.value));
+  const handleHeightChange = (e) => setVirtualHeight(Number(e.target.value));
+
+  // Request screen size from Python client
+  const requestScreenSize = () => sendCommand("getscreensize");
+
+  return (
+    <div style={{ marginTop: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
+      
+      {/* Virtual Screen Input */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 15 }}>
+        <input
+          type="number"
+          value={virtualWidth}
+          onChange={handleWidthChange}
+          placeholder="Width"
+          style={inputStyle}
+        />
+        <input
+          type="number"
+          value={virtualHeight}
+          onChange={handleHeightChange}
+          placeholder="Height"
+          style={inputStyle}
+        />
+        <button onClick={requestScreenSize} style={btnStyle}>Get Screen Size</button>
+      </div>
+
+      {/* Touchpad */}
       <div
-        style={{
-          width: "100%",
-          height: 250,
-          background: "#333",
-          borderRadius: 10,
-          position: "relative",
-          touchAction: "none",
-          userSelect: "none",
-          overflow: "hidden"
-        }}
+        ref={padRef}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp} // release if pointer leaves area
+        onPointerLeave={handlePointerUp}
+        style={{
+          width: "min(90vw, 400px)",
+          aspectRatio: "16 / 9",
+          background: "#222",
+          borderRadius: 12,
+          position: "relative",
+          touchAction: "none",
+          userSelect: "none",
+        }}
       >
-        {/* Ball indicator only shows while dragging in batch mode */}
-        {!liveMouse && dragging.current && (
-          <div
-            style={{
-              width: 30,
-              height: 30,
-              borderRadius: "50%",
-              background: "red",
-              position: "absolute",
-              top: "50%",
-              left: "50%",
-              transform: `translate(calc(${ballPos.x}px - 50%), calc(${ballPos.y}px - 50%))`,
-            }}
-          ></div>
-        )}
+        <div
+          style={{
+            width: 35,
+            height: 35,
+            borderRadius: "50%",
+            background: "red",
+            position: "absolute",
+            left: `${ballPos.x}%`,
+            top: `${ballPos.y}%`,
+            transform: "translate(-50%, -50%)",
+            cursor: "grab",
+          }}
+        ></div>
       </div>
 
       {/* Mouse buttons */}
-      <div style={{ display: "flex", justifyContent: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-        <button style={mouseBtnStyle} onClick={() => sendCommand("mouseleft", false)}>Left Click</button>
-        <button style={mouseBtnStyle} onClick={() => sendCommand("mouseright", false)}>Right Click</button>
+      <div style={{ display: "flex", gap: 10, marginTop: 15, flexWrap: "wrap" }}>
+        <button style={mouseBtnStyle} onClick={() => sendCommand("mouseleft")}>Left Click</button>
+        <button style={mouseBtnStyle} onClick={() => sendCommand("mouseright")}>Right Click</button>
       </div>
     </div>
   );
 }
+
+// Styles
+const inputStyle = {
+  padding: "8px",
+  borderRadius: 6,
+  border: "1px solid #333",
+  width: 80,
+};
+
+const btnStyle = {
+  padding: "4px 6px",
+  borderRadius: 6,
+  border: "1px solid #333",
+  background: "#555",
+  color: "#fff",
+  cursor: "pointer",
+};
 
 const mouseBtnStyle = {
   padding: "12px 20px",

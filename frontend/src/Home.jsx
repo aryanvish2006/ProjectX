@@ -15,7 +15,7 @@ export default function App() {
   const [heartEffect, setHeartEffect] = useState(false);
   const [confirmEnabled, setConfirmEnabled] = useState(true);
 
-  const [panel,setPanel] = useState(true)
+  const [panel,setPanel] = useState(0)
 
   const BROKER = import.meta.env.VITE_EMQX_BROKER
 
@@ -128,11 +128,19 @@ export default function App() {
   localStorage.removeItem("auth");
   window.location.href = "/";
 }}>Logout</button>
-<button style={{backgroundColor:"#2ba4c5ff",marginLeft:10}} onClick={() => {
-  setPanel(!panel)
-}}>Keyboard</button>
+<div>
+  <button style={{backgroundColor:"#384a49ff",marginLeft:10}} onClick={() => {
+  setPanel(0)
+}}>Controls</button>
+<button style={{backgroundColor:"#5d2a5fff",marginLeft:10}} onClick={() => {
+  setPanel(1)
+}}>Keyboard & Mouse</button>
+<button style={{backgroundColor:"#533f26ff",marginLeft:10}} onClick={() => {
+  setPanel(2)
+}}>Hide</button>
+</div>
       </div>
-      {panel?<div>
+      {panel==0?<div>
       {/* PC Controls */}
       <div className="controls-group">
         <strong>PC Controls</strong>
@@ -187,15 +195,15 @@ export default function App() {
         <button style={{ backgroundColor: "#f1c40f" }} onClick={() => window.open("https://aryanvirus.onrender.com/latestupload")}>Latest Upload</button>
         <button style={{ backgroundColor: "#7f8c8d" }} onClick={() => window.open("https://aryanvirus.onrender.com/showuploads")}>All Uploads</button>
       </div>
-</div>:<div><Keyboard sendCommand={sendCommand} />
-<MouseTouchpad/></div>}
-<button style={{backgroundColor:"#2bc535ff",marginLeft:10,border:"2px solid white"}} onClick={() => {
+</div>:panel==1?<div><Keyboard sendCommand={sendCommand}/>
+<MouseTouchpad sendCommand={sendCommand}/></div>:null}
+<button style={{backgroundColor:"#2bc535ff"}} onClick={() => {
   setLog([])
 }}>Clear Log</button>
       <div className="logs">
         
         <h3>Logs</h3>
-        {log.map((l, i) => (<div style={{marginBottom:5}} key={i}>{l}</div>))}
+        {log.map((l, i) => (<div style={{border:"1px solid #595959ff",padding:5,marginBottom:5}} key={i}>{l}</div>))}
       </div>
     </div>
   );
