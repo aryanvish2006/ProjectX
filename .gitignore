@@ -16,6 +16,7 @@ server/.env
 
 #frontend
 ProjectXFrontend/node_modules
+ProjectXFrontend/.env
 
 #OS files
 .DS_Store

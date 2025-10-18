@@ -3,12 +3,18 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import PrivateRoute from "./PrivateRoute";
 import Login from "./Login";
 import Home from "./Home";
+import PublicRoute from "./PublicRoute";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Login />} />
+      <Route path="/" element={
+        <PublicRoute>
+          <Login />
+        </PublicRoute>
+      } />
+
         <Route
           path="/home"
           element={

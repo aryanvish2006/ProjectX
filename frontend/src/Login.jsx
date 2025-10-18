@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 // precomputed SHA-256 hash of your password (generate locally)
-const PASSWORD_HASH = "1ff27bb06a3d95add3f58036b212896b8a334ce3e675e0cbd03b5ee59e4e1e7c";
+const PASSWORD_HASH = import.meta.env.VITE_LOGIN_HASHED_PASSWORD;
 
 async function sha256Hex(str) {
   const data = new TextEncoder().encode(str);

@@ -80,16 +80,3 @@ def start_block(target="both"):
         threading.Thread(target=block_keyboard, daemon=True).start()
     if target in ["mouse", "both"]:
         threading.Thread(target=block_mouse, daemon=True).start()
-
-# ------------------ Example usage ------------------
-if __name__ == "__main__":
-    print("[INFO] Blocking keyboard and mouse. Use Ctrl+Shift+A+V to unblock.")
-    start_block("both")
-
-    # Main loop continues running
-    count = 0
-    while True:
-        print(f"Main loop running... {count}")
-        count += 1
-        import time
-        time.sleep(1)

@@ -2,7 +2,8 @@ import tkinter as tk
 import math
 import time
 import pyautogui as pg
-
+import random
+import threading
 
 def notepad_write(text,drawHeart):
     pg.press("win")
@@ -71,3 +72,21 @@ def draw_heart():
             time.sleep(0.01)    # Small delay for live drawing effect
 
         time.sleep(3)    
+        root.destroy()
+move_flag = False
+screen_width,screen_height = pg.size()
+def random_move():
+    global move_flag
+    while move_flag:
+        x=random.randint(100,screen_width-100)
+        y=random.randint(100,screen_height-100)
+        pg.moveTo(x,y,0.2)
+        time.sleep(0.3)     
+def start_random_move():
+    global move_flag
+    if not move_flag:
+        move_flag= True
+        threading.Thread(target=random_move,daemon=True).start()
+def stop_random_move():
+    global move_flag
+    move_flag=False        
