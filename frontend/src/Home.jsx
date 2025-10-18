@@ -156,6 +156,7 @@ export default function App() {
         <button style={{ backgroundColor: "#6dca34ff" }} onClick={() => sendCommand("displayoff", false)}>Display Off</button>
         <button style={{ backgroundColor: "#9c15eaff" }} onClick={() => sendCommand("displayon", false)}>Display On</button>
         <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`listfolder ${inputValue}`, true)}>List Folder</button>
+        <button style={{ backgroundColor: "#2fc853ff" }} onClick={() => sendCommand(`createfile ${inputValue}`, true)}>Create File</button>
         <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`readfile ${inputValue}`, true)}>Read File</button>
         <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`deletefile ${inputValue}`, true)}>Delete File</button>
         <button style={{ backgroundColor: "#7f8c8d" }} onClick={() => sendCommand("end", false)}>End Script</button>
@@ -201,10 +202,22 @@ export default function App() {
   setLog([])
 }}>Clear Log</button>
       <div className="logs">
-        
-        <h3>Logs</h3>
-        {log.map((l, i) => (<div style={{border:"1px solid #595959ff",padding:5,marginBottom:5}} key={i}>{l}</div>))}
-      </div>
+  <h3>Logs</h3>
+  {log.map((l, i) => (
+    <pre
+      key={i}
+      style={{
+        border: "1px solid #595959ff",
+        padding: 5,
+        marginBottom: 5,
+        whiteSpace: "pre-wrap",
+      }}
+    >
+      {l.replace(/\\n/g, "\n")} 
+    </pre>
+  ))}
+</div>
+
     </div>
   );
 }

