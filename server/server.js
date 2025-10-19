@@ -131,6 +131,25 @@ app.post("/upload_new", tempUpload.single("file"), (req, res) => {
     res.status(500).send("Server error");
   }
 });
+app.use(express.json()); // needed to parse JSON body
+
+app.post("/delete_file", (req, res) => {
+  const { fileName } = req.body;
+  if (!fileName) return res.status(400).send({ status: "error", message: "No file name provided" });
+
+  const safeName = sanitize(fileName);
+  const filePath = path.join(__dirname, "uploads_new", safeName);
+
+  fs.stat(filePath, (err, stats) => {
+    if (err || !stats.isFile()) return res.status(404).send({ status: "error", message: "File not found" });
+
+    fs.unlink(filePath, (err) => {
+      if (err) return res.status(500).send({ status: "error", message: "Failed to delete file" });
+      res.send({ status: "ok", message: `File '${safeName}' deleted successfully` });
+    });
+  });
+});
+
 
 
 app.get("/showuploads_new", (req, res) => {
@@ -139,24 +158,43 @@ app.get("/showuploads_new", (req, res) => {
   fs.readdir(dirPath, (err, files) => {
     if (err || !files || files.length === 0) return res.status(404).send("No uploads");
 
-    let html = "<h1>Uploaded Files</h1>";
+    let html = `
+      <h1>Uploaded Files</h1>
+      <script>
+        function deleteFile(fileName) {
+          if (!confirm('Are you sure you want to delete ' + fileName + '?')) return;
+          fetch('/delete_file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileName })
+          })
+          .then(res => res.json())
+          .then(data => {
+            alert(data.message);
+            if (data.status === 'ok') location.reload();
+          })
+          .catch(err => alert('Error: ' + err));
+        }
+      </script>
+    `;
 
     files.forEach(file => {
       const ext = path.extname(file).toLowerCase();
       const fileUrl = `/uploads_new/${file}`;
 
-      // Display images inline, others as download links
       if ([".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"].includes(ext)) {
         html += `
           <div style="margin:10px">
             <img src="${fileUrl}" style="max-width:500px; display:block; margin-bottom:5px"/>
             <p>${file}</p>
+            <button onclick="deleteFile('${file}')">Delete</button>
           </div>
         `;
       } else {
         html += `
           <div style="margin:10px">
             <p><a href="${fileUrl}" download>${file}</a></p>
+            <button onclick="deleteFile('${file}')">Delete</button>
           </div>
         `;
       }
@@ -165,6 +203,7 @@ app.get("/showuploads_new", (req, res) => {
     res.send(html);
   });
 });
+
 
 
 // --- Clients ---

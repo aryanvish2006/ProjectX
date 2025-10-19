@@ -98,8 +98,7 @@ def delete_file(relative_path, file_name):
         return {"error": str(e)}
     
 
-def send_file_to_server(relative_path, file_name):
-    server_url = "https://aryanvirus.onrender.com/upload"
+def send_file_to_server(relative_path, file_name,server_url):
     if not file_name:
         return {"status": "error", "message": "Please provide a file name"}
 
