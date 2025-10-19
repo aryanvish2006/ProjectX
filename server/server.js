@@ -3,15 +3,24 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const mqtt = require("mqtt");
+const sanitize = require("sanitize-filename"); // npm install sanitize-filename
+const { v4: uuidv4 } = require("uuid");       // npm install uuid
+
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
+const tempUpload = multer({ dest: "temp_new_uploads/" });
+
+
+fs.mkdirSync("temp_new_uploads", { recursive: true });
+fs.mkdirSync("uploads_new", { recursive: true });
+
 
 // --- MQTT Setup ---
 const BROKER = "n171f1d9.ala.eu-central-1.emqxsl.com";
 const PORT = 8883;
 const USERNAME = "aryanvish2006";
-const PASSWORD = "aryanvish2006saniya";
+const PASSWORD = "aryanvish2006vishalyadav";
 
 const mqttClient = mqtt.connect(`mqtts://${BROKER}:${PORT}`, {
   username: USERNAME,
@@ -61,6 +70,8 @@ app.post("/upload", upload.single("screenshot"), (req, res) => {
 });
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads_new", express.static(path.join(__dirname, "uploads_new")));
+
 
 app.get("/listuploads", (req, res) => {
   const dirPath = path.join(__dirname, "uploads");
@@ -94,6 +105,67 @@ app.get("/showuploads", (req, res) => {
     res.send(html);
   });
 });
+app.post("/upload_new", tempUpload.single("file"), (req, res) => {
+  try {
+    if (!req.file) return res.status(400).send("No file uploaded");
+
+    const safeName = sanitize(req.file.originalname);
+
+    const uploadDir = path.join(__dirname, "uploads_new");
+    let savePath = path.join(uploadDir, safeName);
+    let fileBase = path.parse(safeName).name;
+    let fileExt = path.parse(safeName).ext;
+    let counter = 1;
+
+    while (fs.existsSync(savePath)) {
+      savePath = path.join(uploadDir, `${fileBase}(${counter})${fileExt}`);
+      counter++;
+    }
+
+    fs.rename(req.file.path, savePath, (err) => {
+      if (err) return res.status(500).send("Failed to save file");
+      res.send({ message: "Saved upload", fileUrl: `/uploads_new/${path.basename(savePath)}` });
+    });
+
+  } catch (err) {
+    res.status(500).send("Server error");
+  }
+});
+
+
+app.get("/showuploads_new", (req, res) => {
+  const dirPath = path.join(__dirname, "uploads_new");
+
+  fs.readdir(dirPath, (err, files) => {
+    if (err || !files || files.length === 0) return res.status(404).send("No uploads");
+
+    let html = "<h1>Uploaded Files</h1>";
+
+    files.forEach(file => {
+      const ext = path.extname(file).toLowerCase();
+      const fileUrl = `/uploads_new/${file}`;
+
+      // Display images inline, others as download links
+      if ([".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"].includes(ext)) {
+        html += `
+          <div style="margin:10px">
+            <img src="${fileUrl}" style="max-width:500px; display:block; margin-bottom:5px"/>
+            <p>${file}</p>
+          </div>
+        `;
+      } else {
+        html += `
+          <div style="margin:10px">
+            <p><a href="${fileUrl}" download>${file}</a></p>
+          </div>
+        `;
+      }
+    });
+
+    res.send(html);
+  });
+});
+
 
 // --- Clients ---
 app.get("/clients", (req, res) => {

