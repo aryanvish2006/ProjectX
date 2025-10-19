@@ -78,7 +78,7 @@ export default function App() {
       return;
     }
     if (confirmEnabled) {
-      if (!window.confirm(`Send command: ${command}?`)) return;
+      if (!window.confirm(`Send command: ${command}? To : [ ${client} ]`)) return;
     }
 
     // Broadcast or individual
