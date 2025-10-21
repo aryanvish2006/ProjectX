@@ -146,6 +146,7 @@ export default function App() {
       {/* PC Controls */}
       <div className="controls-group">
         <strong>PC Controls</strong>
+        <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`${inputValue}`, true)}>Manual</button>
         <button style={{ backgroundColor: "#e67e22" }} onClick={() => sendCommand("shutdown", false)}>Shutdown</button>
         <button style={{ backgroundColor: "#f39c12" }} onClick={() => sendCommand("lock", false)}>Lock</button>
         <button style={{ backgroundColor: "#2980b9" }} onClick={() => sendCommand("desktop", false)}>Show Desktop</button>
@@ -164,6 +165,7 @@ export default function App() {
         <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`readfile ${inputValue}`, true)}>Read File</button>
         <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`deletefile ${inputValue}`, true)}>Delete File</button>
         <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`sendtoserver ${inputValue}`, true)}>Send To Server</button>
+        <button style={{ backgroundColor: "#ab7563ff" }} onClick={() => sendCommand("restart", false)}>Restart Script</button>
         <button style={{ backgroundColor: "#7f8c8d" }} onClick={() => sendCommand("end", false)}>End Script</button>
       </div>
 

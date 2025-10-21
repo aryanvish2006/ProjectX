@@ -1,6 +1,7 @@
 from pynput.keyboard import Listener, Key
 import time
 log =""
+listener = None
 
 def on_press(key):
     global log
@@ -15,16 +16,26 @@ def on_press(key):
         elif key == Key.backspace:
             log = log[:-1]                
 
-listener =  Listener(on_press=on_press)
 
 def start_logging():
+    global listener
+    global log
     log =""
     print("started")
-    listener.start()
-
+    if listener is None or not listener.running:
+        listener =  Listener(on_press=on_press)
+        listener.start()
 
 def stop_logging():
+    global listener
     print("stopped")
-    listener.stop()
-    return log 
+    if listener is not None and listener.running:
+        listener.stop()
+        listener = None
+    return log
+    
+
+
+
+
 
