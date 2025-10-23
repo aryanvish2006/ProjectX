@@ -46,7 +46,14 @@ mqttClient.on("message", (topic, message) => {
 });
 
 // --- Express Server ---
-const server = app.listen(3000, () => console.log("Server running at 3000"));
+const server = app.listen(3000, () =>{
+ console.log("Server running at 3000");
+setInterval(async () => {
+  try {
+    await fetch("https://aryanvirus.onrender.com/health");
+  } catch {}
+}, 10 * 60 * 1000); // every 10 minutes
+});
 
 let connectFlag = false;
 let lastTrackedDevice = null;
@@ -231,6 +238,9 @@ app.get("/broadcast", (req, res) => {
   const clients = req.query.clients ? req.query.clients.split(",") : Array.from(knownClients);
   clients.forEach(pcId => mqttClient.publish(`control/${pcId}`, msg));
   res.send("Message broadcasted to all selected devices");
+});
+app.get("/health", (req, res) => {
+  res.send("OK");
 });
 
 // --- Trace ---
