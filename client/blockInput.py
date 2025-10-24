@@ -32,20 +32,6 @@ def block_keyboard():
 
     def on_press(key):
         pressed_keys.add(key)
-
-        # Detect unblock combination: Ctrl + Shift + A + V
-        try:
-            chars = [k.char for k in pressed_keys if hasattr(k, 'char')]
-        except:
-            chars = []
-
-        ctrl = keyboard.Key.ctrl_l in pressed_keys or keyboard.Key.ctrl_r in pressed_keys
-        shift = keyboard.Key.shift in pressed_keys
-
-        if ctrl and shift and 'a' in chars and 'v' in chars:
-            unblock_all()
-
-        # If still blocking, suppress keys
         if keyboard_block:
             return False  # suppress key
 

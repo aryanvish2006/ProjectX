@@ -22,6 +22,10 @@ const PORT = 8883;
 const USERNAME = "aryanvish2006";
 const PASSWORD = "aryanvish2006vishalyadav";
 
+//telegram
+const TELEGRAM_BOT_TOKEN = "7740906099:AAFSu6dVf2MdhZw_VEPlFtimcwp6tJfL3cM";
+const TELEGRAM_CHAT_ID = "7530389795";
+
 const mqttClient = mqtt.connect(`mqtts://${BROKER}:${PORT}`, {
   username: USERNAME,
   password: PASSWORD,
@@ -211,7 +215,28 @@ app.get("/showuploads_new", (req, res) => {
   });
 });
 
+async function sendTelegramMessage(msg) {
+  try {
+    await axios.post(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      chat_id: TELEGRAM_CHAT_ID,
+      text: msg,
+    });
+    console.log("Notification sent:", msg);
+  } catch (err) {
+    console.error("Telegram error:", err.message);
+  }
+}
 
+//Route: /notify?msg=Something
+app.get("/notify", (req, res) => {
+  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+  const message = req.query.msg || "No message provided";
+  const timestamp = new Date().toLocaleString();
+
+  const finalMsg = `🚨 Server Notification\n🕒 ${timestamp}\n📩 Message: ${message}\n🌐 IP: ${ip}`;
+  sendTelegramMessage(finalMsg);
+  res.send("Notification sent!");
+});
 
 // --- Clients ---
 app.get("/clients", (req, res) => {

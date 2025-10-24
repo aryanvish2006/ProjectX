@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 // precomputed SHA-256 hash of your password (generate locally)
 const PASSWORD_HASH = import.meta.env.VITE_LOGIN_HASHED_PASSWORD;
+const LOGIN_TOKEN = import.meta.env.VITE_LOGIN_TOKEN;
 
 async function sha256Hex(str) {
   const data = new TextEncoder().encode(str);
@@ -21,7 +22,7 @@ export default function Login() {
     e.preventDefault();
     const hash = await sha256Hex(pw);
     if (hash === PASSWORD_HASH) {
-      localStorage.setItem("auth", "true");
+      localStorage.setItem("token",LOGIN_TOKEN);
       nav("/home", { replace: true });
     } else {
       setErr("Wrong password");
