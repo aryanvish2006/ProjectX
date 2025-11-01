@@ -22,7 +22,7 @@ export default function Login() {
     e.preventDefault();
     const hash = await sha256Hex(pw);
     if (hash === PASSWORD_HASH) {
-      localStorage.setItem("token",LOGIN_TOKEN);
+      localStorage.setItem("auth",LOGIN_TOKEN);
       nav("/home", { replace: true });
     } else {
       setErr("Wrong password");

