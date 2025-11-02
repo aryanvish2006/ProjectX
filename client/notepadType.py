@@ -50,7 +50,8 @@ def notepad_write(text,drawHeart):
     if drawHeart:
         root.destroy()
 
-def draw_heart():    
+def draw_heart():
+    try:        
         root = tk.Tk()
         root.attributes('-topmost', True)
         root.attributes('-transparentcolor', 'white')
@@ -73,6 +74,9 @@ def draw_heart():
 
         time.sleep(3)    
         root.destroy()
+        return "successfully drawn heart"
+    except Exception as e:
+        return e   
 move_flag = False
 screen_width,screen_height = pg.size()
 def random_move():

