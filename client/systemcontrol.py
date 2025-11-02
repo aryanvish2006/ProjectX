@@ -29,22 +29,22 @@ def set_wallpaper_from_url(url: str):
         img_path = os.path.join(temp_dir, "temp_wallpaper.jpg")
 
         # Download image
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=20)
         response.raise_for_status()
         with open(img_path, "wb") as f:
             f.write(response.content)
 
         # Apply wallpaper
         ctypes.windll.user32.SystemParametersInfoW(20, 0, img_path, 3)
-        print("🖼️ Wallpaper applied successfully.")
+        return("🖼️ Wallpaper applied successfully.")
 
     except Exception as e:
-        print(f"❌ Error: {e}")
+        return(f"❌ Error: {e}")
     finally:
         # Clean up the downloaded file
         if os.path.exists(img_path):
             os.remove(img_path)
-            print("🧹 Temporary image deleted.")
+            return("🧹 Temporary image deleted.")
        
 
 

