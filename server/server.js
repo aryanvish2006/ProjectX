@@ -109,6 +109,21 @@ app.get("/mqtt_flag/reset_all", (req, res) => {
   res.json({ message: "All flags set to true" });
 });
 
+// ✅ 4️⃣ Delete a client's flag
+// GET /mqtt_flag/delete?pc_id=12345
+app.get("/mqtt_flag/delete", (req, res) => {
+  const { pc_id } = req.query;
+  if (!pc_id) return res.status(400).json({ error: "Missing pc_id" });
+
+  if (flags[pc_id] !== undefined) {
+    delete flags[pc_id];
+    saveFlags();
+    console.log(`Flag for ${pc_id} deleted`);
+    res.json({ message: `Flag for ${pc_id} deleted successfully` });
+  } else {
+    res.status(404).json({ error: `No flag found for ${pc_id}` });
+  }
+});
 
 
 // --- Express Server ---
