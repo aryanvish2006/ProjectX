@@ -10,7 +10,7 @@ const axios = require("axios")
 const app = express();
 const upload = multer({ dest: "uploads/" });
 const tempUpload = multer({ dest: "temp_new_uploads/" });
-
+const FLAG_FILE = path.join(__dirname, "mqtt_flags.json");
 
 fs.mkdirSync("temp_new_uploads", { recursive: true });
 fs.mkdirSync("uploads_new", { recursive: true });
@@ -48,6 +48,68 @@ mqttClient.on("message", (topic, message) => {
     console.log(`ACK from ${clientId}: ${msg}`);
   }
 });
+
+
+
+// Load existing flag data
+let flags = {};
+try {
+  if (fs.existsSync(FLAG_FILE)) {
+    flags = JSON.parse(fs.readFileSync(FLAG_FILE, "utf8"));
+  }
+} catch (e) {
+  console.error("Error reading flag file:", e);
+}
+
+// Save all flags to file
+function saveFlags() {
+  try {
+    fs.writeFileSync(FLAG_FILE, JSON.stringify(flags, null, 2));
+  } catch (e) {
+    console.error("Error saving flags:", e);
+  }
+}
+
+// ✅ 1️⃣ Individual flag endpoint
+// GET /mqtt_flag?pc_id=12345&state=true|false
+app.get("/mqtt_flag", (req, res) => {
+  const { pc_id, state } = req.query;
+
+  if (!pc_id) {
+    return res.status(400).json({ error: "Missing pc_id" });
+  }
+
+  // If 'state' is provided, update the flag
+  if (state !== undefined) {
+    const val = state.toLowerCase();
+    if (val === "true") flags[pc_id] = true;
+    else if (val === "false") flags[pc_id] = false;
+    else return res.status(400).json({ error: "Invalid state (use true/false)" });
+
+    saveFlags();
+    console.log(`Flag for ${pc_id} set to ${flags[pc_id]}`);
+  }
+
+  // Return current state (default = true if not set)
+  res.json({ pc_id, flag: flags[pc_id] ?? true });
+});
+
+// ✅ 2️⃣ All PCs status
+// GET /mqtt_flag/all
+app.get("/mqtt_flag/all", (req, res) => {
+  res.json(flags);
+});
+
+// ✅ 3️⃣ Optional: reset all flags to true
+// GET /mqtt_flag/reset_all
+app.get("/mqtt_flag/reset_all", (req, res) => {
+  for (const id in flags) flags[id] = true;
+  saveFlags();
+  console.log("All flags reset to true");
+  res.json({ message: "All flags set to true" });
+});
+
+
 
 // --- Express Server ---
 const server = app.listen(3000, () =>{

