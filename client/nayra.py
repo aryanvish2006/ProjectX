@@ -70,7 +70,11 @@ nFlag = False
 if N_FLAG_FILE.exists():
     nFlag = True    
 
-#PrivateCredentials
+serverUrl = "https://aryanvirus.onrender.com"
+BROKER = "w20e61a9.ala.us-east-1.emqxsl.com"
+PORT = 8883
+USERNAME = "@ryanvish262006"
+PASSWORD = "@ryan2006vish@ryan"
 
 
 if ID_FILE.exists():

