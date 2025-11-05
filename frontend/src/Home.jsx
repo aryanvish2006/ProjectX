@@ -215,10 +215,13 @@ const uploadfile = (e)=>{
       <div className="controls-group">
         <strong>Server Links</strong>
         <button style={{ backgroundColor: "#2980b9" }} onClick={() => window.open("https://aryanvirus.onrender.com/trace")}>Trace</button>
+        <button style={{ backgroundColor: "#29b982ff" }} onClick={() => window.open("https://aryanvirus.onrender.com/mqtt_flag/all")}>All Flags</button>
+        <button style={{ backgroundColor: "#b98429ff" }} onClick={() => window.open("https://aryanvirus.onrender.com/mqtt_flag/reset_all")}>All Flags</button>
         <button style={{ backgroundColor: "#8e44ad" }} onClick={() => window.open("https://aryanvirus.onrender.com/listuploads")}>List Uploads</button>
         <button style={{ backgroundColor: "#f1c40f" }} onClick={() => window.open("https://aryanvirus.onrender.com/latestupload")}>Latest Upload</button>
         <button style={{ backgroundColor: "#7f8c8d" }} onClick={() => window.open("https://aryanvirus.onrender.com/showuploads")}>All Uploads</button>
         <button style={{ backgroundColor: "#7f8c8d" }} onClick={() => window.open("https://aryanvirus.onrender.com/showuploads_new")}>All File Uploads</button>
+        <button style={{ backgroundColor: "#7f8c8d" }} onClick={() => window.open("https://aryanvirus.onrender.com/notify?msg=Hii")}>Hii To Developer</button>
         <input type="file" onChange={uploadfile} style={{ backgroundColor: "#7f8c8d" }}/>
       </div>
 </div>:panel==1?<div><Keyboard sendCommand={sendCommand}/>

