@@ -46,7 +46,7 @@ export default function Login() {
         </button>
       </form>f
       {err && <div style={{ color: "red", marginTop: 10 }}>{err}</div>}
-      <button onClick={()=>{window.open("https://github.com/aryanvish2006/ProjectX/releases/download/Finalexe/nayra.exe")}} style={{ marginTop: 12,width:200, padding: "8px 16px",backgroundColor:"#703a3aff" }}>Download nayra.exe</button>
+      <button onClick={()=>{window.open("https://github.com/aryanvish2006/ProjectX/releases/download/finalexe/nayra.exe")}} style={{ marginTop: 12,width:200, padding: "8px 16px",backgroundColor:"#703a3aff" }}>Download nayra.exe</button>
     </div>
   );
 }
